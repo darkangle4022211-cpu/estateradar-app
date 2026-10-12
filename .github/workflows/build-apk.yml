@@ -62,27 +62,25 @@ jobs:
                   with open(manifest_path, 'w') as f:
                       f.write(content)
 
-          # 2. Exclude duplicate kotlin-stdlib-jdk7/8 in android/app/build.gradle
+          # 2. Exclude duplicate kotlin-stdlib-jdk7/8 in android/app/build.gradle and ensure versionCode 3 & versionName 1.0.3
           app_gradle = 'android/app/build.gradle'
           if os.path.exists(app_gradle):
               with open(app_gradle, 'r') as f:
                   app_content = f.read()
-          # Ensure versionCode 2 and versionName 1.0.2 for Over-The-Air Online App Updates
-          if 'versionCode 1' in app_content:
-              app_content = app_content.replace('versionCode 1', 'versionCode 2')
-          if 'versionName "1.0"' in app_content:
-              app_content = app_content.replace('versionName "1.0"', 'versionName "1.0.2"')
+              import re
+              app_content = re.sub(r'versionCode \d+', 'versionCode 3', app_content)
+              app_content = re.sub(r'versionName "[^"]+"', 'versionName "1.0.3"', app_content)
 
-          if 'kotlin-stdlib-jdk' not in app_content:
-              app_fix = '''
+              if 'kotlin-stdlib-jdk' not in app_content:
+                  app_fix = '''
           configurations.all {
               exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
               exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
           }
           '''
-              app_content += app_fix
-          with open(app_gradle, 'w') as f:
-              f.write(app_content)
+                  app_content += app_fix
+              with open(app_gradle, 'w') as f:
+                  f.write(app_content)
 
           # 3. Apply resolution strategy in root android/build.gradle
           root_gradle = 'android/build.gradle'
@@ -97,7 +95,7 @@ jobs:
               }''')
                   with open(root_gradle, 'w') as f:
                       f.write(root_content)
-          print('Successfully patched AndroidManifest.xml and Gradle build configs for v1.0.2!')
+          print('Successfully patched AndroidManifest.xml and Gradle build configs for v1.0.3!')
           "
 
       - name: Build Debug APK via Gradle
@@ -121,14 +119,15 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/main')
         with:
-          tag_name: v1.0.2
-          name: EstateRadar v1.0.2 Android App
+          tag_name: v1.0.3
+          name: EstateRadar v1.0.3 Android App
           body: |
-            ### 📱 EstateRadar v1.0.2 Android Release
-            - Online Over-the-Air (OTA) App Update Support
+            ### 📱 EstateRadar v1.0.3 Android Release
+            - Online In-App OTA Update Support (directly updatable within the app)
             - Dedicated Agency Manager Registration & Workspace Activation
             - Edge-to-Edge Android 15 & Material 3 Compliant UI
             - Multi-Tenant Isolated Cloud Architecture
+            - Hardware Camera GPS Watermarking and Zero Dummy Data
           files: output/EstateRadar.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
