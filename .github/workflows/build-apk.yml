@@ -37,7 +37,10 @@ jobs:
 
       - name: Add Capacitor Android Platform
         run: |
-          npx cap add android || true
+          if [ ! -f android/gradlew ]; then
+            rm -rf android
+            npx cap add android
+          fi
           npx cap sync android
 
       - name: Configure Hardware Permissions & Gradle Dependencies
