@@ -2687,10 +2687,12 @@ body.light-theme .schema-code-preview {
   background-color: var(--bg-app);
 }
 
-/* Native App Bar */
+/* Native App Bar (Edge-to-Edge Android 15 & Material 3 compliant) */
 .mobile-native-appbar {
-  height: 56px;
-  padding: 0 16px;
+  height: calc(56px + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: max(16px, env(safe-area-inset-left, 16px));
+  padding-right: max(16px, env(safe-area-inset-right, 16px));
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
@@ -3384,9 +3386,9 @@ body.light-theme .schema-code-preview {
   line-height: 1.35;
 }
 
-/* Bottom Navigation Bar */
+/* Bottom Navigation Bar (Edge-to-Edge Android 15 & Material 3 compliant) */
 .manager-bottom-nav {
-  height: 62px;
+  height: calc(62px + env(safe-area-inset-bottom, 0px));
   background-color: var(--bg-surface);
   border-top: 1px solid var(--border-subtle);
   display: flex;
@@ -3394,7 +3396,9 @@ body.light-theme .schema-code-preview {
   justify-content: space-around;
   flex-shrink: 0;
   z-index: 500;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: max(8px, env(safe-area-inset-left, 8px));
+  padding-right: max(8px, env(safe-area-inset-right, 8px));
 }
 
 .bnav-tab-btn {
