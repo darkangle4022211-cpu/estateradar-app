@@ -40,23 +40,58 @@ jobs:
           npx cap add android || true
           npx cap sync android
 
-      - name: Configure Hardware Permissions
+      - name: Configure Hardware Permissions & Gradle Dependencies
         run: |
           python3 -c "
+          import os
+
+          # 1. Hardware Permissions in AndroidManifest.xml
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
-          with open(manifest_path, 'r') as f:
-              content = f.read()
-          perms = '''    <!-- Hardware Permissions for Field Telemetry & Surveys -->
+          if os.path.exists(manifest_path):
+              with open(manifest_path, 'r') as f:
+                  content = f.read()
+              perms = '''    <!-- Hardware Permissions for Field Telemetry & Surveys -->
               <uses-permission android:name=\"android.permission.INTERNET\" />
               <uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\" />
               <uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\" />
               <uses-permission android:name=\"android.permission.ACCESS_BACKGROUND_LOCATION\" />
               <uses-permission android:name=\"android.permission.CAMERA\" />
           '''
-          if 'ACCESS_FINE_LOCATION' not in content:
-              content = content.replace('<uses-permission android:name=\"android.permission.INTERNET\" />', perms)
-              with open(manifest_path, 'w') as f:
-                  f.write(content)
+              if 'ACCESS_FINE_LOCATION' not in content:
+                  content = content.replace('<uses-permission android:name=\"android.permission.INTERNET\" />', perms)
+                  with open(manifest_path, 'w') as f:
+                      f.write(content)
+
+          # 2. Exclude duplicate kotlin-stdlib-jdk7/8 in android/app/build.gradle
+          app_gradle = 'android/app/build.gradle'
+          if os.path.exists(app_gradle):
+              with open(app_gradle, 'r') as f:
+                  app_content = f.read()
+              if 'kotlin-stdlib-jdk' not in app_content:
+                  app_fix = '''
+          configurations.all {
+              exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
+              exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
+          }
+          '''
+                  app_content += app_fix
+                  with open(app_gradle, 'w') as f:
+                      f.write(app_content)
+
+          # 3. Apply resolution strategy in root android/build.gradle
+          root_gradle = 'android/build.gradle'
+          if os.path.exists(root_gradle):
+              with open(root_gradle, 'r') as f:
+                  root_content = f.read()
+              if 'kotlin-stdlib-jdk' not in root_content:
+                  root_content = root_content.replace('allprojects {', '''allprojects {
+              configurations.all {
+                  exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
+                  exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
+              }''')
+                  with open(root_gradle, 'w') as f:
+                      f.write(root_content)
+          print('Successfully patched AndroidManifest.xml and Gradle build configs!')
           "
 
       - name: Build Debug APK via Gradle
