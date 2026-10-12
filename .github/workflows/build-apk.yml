@@ -1,0 +1,96 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Release EstateRadar APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Web Application
+        run: npm run build
+
+      - name: Add Capacitor Android Platform
+        run: |
+          npx cap add android || true
+          npx cap sync android
+
+      - name: Configure Hardware Permissions
+        run: |
+          python3 -c "
+          manifest_path = 'android/app/src/main/AndroidManifest.xml'
+          with open(manifest_path, 'r') as f:
+              content = f.read()
+          perms = '''    <!-- Hardware Permissions for Field Telemetry & Surveys -->
+              <uses-permission android:name=\"android.permission.INTERNET\" />
+              <uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\" />
+              <uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\" />
+              <uses-permission android:name=\"android.permission.ACCESS_BACKGROUND_LOCATION\" />
+              <uses-permission android:name=\"android.permission.CAMERA\" />
+          '''
+          if 'ACCESS_FINE_LOCATION' not in content:
+              content = content.replace('<uses-permission android:name=\"android.permission.INTERNET\" />', perms)
+              with open(manifest_path, 'w') as f:
+                  f.write(content)
+          "
+
+      - name: Build Debug APK via Gradle
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Prepare APK Output
+        run: |
+          mkdir -p output
+          cp android/app/build/outputs/apk/debug/app-debug.apk output/EstateRadar.apk
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EstateRadar-APK
+          path: output/EstateRadar.apk
+
+      - name: Release APK File
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/heads/main')
+        with:
+          tag_name: v1.0.0
+          name: EstateRadar v1.0.0 Android App
+          body: |
+            ### 📱 EstateRadar Enterprise Android Release
+            - Multi-Tenant Agency Isolation (Separate workspaces per real estate company)
+            - Real-Time Field Surveyor Telemetry
+            - Anti-Tamper Cryptographic Camera Surveys
+            - Supabase Cloud Database Connected
+          files: output/EstateRadar.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
