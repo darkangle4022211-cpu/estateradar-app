@@ -1,0 +1,14 @@
+{
+  "version": "v1.0.3",
+  "versionName": "1.0.3",
+  "versionCode": 3,
+  "downloadUrl": "https://github.com/darkangle4022211-cpu/estateradar-app/releases/download/v1.0.3/EstateRadar.apk",
+  "releaseNotes": [
+    "Native 1-tap in-app auto-update directly through Android Package Installer",
+    "Real-time online version checking directly against GitHub releases API",
+    "No external redirects to repository or web pages",
+    "Zero dummy data isolated multi-tenant architecture",
+    "Hardware camera GPS timestamp watermark verification"
+  ],
+  "publishedAt": "2026-10-12T21:41:33Z"
+}
