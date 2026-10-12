@@ -49,24 +49,150 @@ jobs:
           import os
           import re
 
-          # 1. Hardware Permissions in AndroidManifest.xml
+          # 1. Hardware & In-App Auto-Update Permissions in AndroidManifest.xml
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
           if os.path.exists(manifest_path):
               with open(manifest_path, 'r') as f:
                   content = f.read()
-              perms = '''    <!-- Hardware Permissions for Field Telemetry & Surveys -->
+              perms = '''    <!-- Hardware & In-App Auto-Update Permissions -->
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
               <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
               <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
               <uses-permission android:name="android.permission.CAMERA" />
+              <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
           '''
-              if 'ACCESS_FINE_LOCATION' not in content:
+              if 'REQUEST_INSTALL_PACKAGES' not in content:
                   content = content.replace('<uses-permission android:name="android.permission.INTERNET" />', perms)
                   with open(manifest_path, 'w') as f:
                       f.write(content)
 
-          # 2. Exclude duplicate kotlin-stdlib-jdk7/8 in android/app/build.gradle and ensure versionCode 3 & versionName 1.0.3
+          # 2. FileProvider file_paths.xml
+          file_paths = 'android/app/src/main/res/xml/file_paths.xml'
+          if os.path.exists(file_paths):
+              xml_content = '''<?xml version="1.0" encoding="utf-8"?>
+          <paths xmlns:android="http://schemas.android.com/apk/res/android">
+              <external-path name="my_images" path="." />
+              <cache-path name="my_cache_images" path="." />
+              <external-files-path name="external_files" path="." />
+              <files-path name="internal_files" path="." />
+          </paths>
+          '''
+              with open(file_paths, 'w') as f:
+                  f.write(xml_content)
+
+          # 3. Native AppUpdaterPlugin.java
+          updater_plugin_path = 'android/app/src/main/java/com/estateradar/tracker/AppUpdaterPlugin.java'
+          os.makedirs(os.path.dirname(updater_plugin_path), exist_ok=True)
+          plugin_java = '''package com.estateradar.tracker;
+
+          import android.app.DownloadManager;
+          import android.content.BroadcastReceiver;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.IntentFilter;
+          import android.net.Uri;
+          import android.os.Build;
+          import android.os.Environment;
+          import androidx.core.content.FileProvider;
+          import com.getcapacitor.Plugin;
+          import com.getcapacitor.PluginCall;
+          import com.getcapacitor.PluginMethod;
+          import com.getcapacitor.annotation.CapacitorPlugin;
+          import java.io.File;
+
+          @CapacitorPlugin(name = "AppUpdater")
+          public class AppUpdaterPlugin extends Plugin {
+
+              @PluginMethod
+              public void startAutoUpdate(PluginCall call) {
+                  String url = call.getString("url");
+                  if (url == null || url.isEmpty()) {
+                      call.reject("Download URL is required");
+                      return;
+                  }
+
+                  try {
+                      Context context = getContext();
+                      DownloadManager downloadManager = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
+                      Uri downloadUri = Uri.parse(url);
+
+                      File downloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                      if (downloadDir != null && !downloadDir.exists()) {
+                          downloadDir.mkdirs();
+                      }
+                      File apkFile = new File(downloadDir, "EstateRadar_latest.apk");
+                      if (apkFile.exists()) {
+                          apkFile.delete();
+                      }
+
+                      DownloadManager.Request request = new DownloadManager.Request(downloadUri);
+                      request.setTitle("EstateRadar Auto-Update");
+                      request.setDescription("Downloading latest update...");
+                      request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                      request.setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "EstateRadar_latest.apk");
+                      request.setMimeType("application/vnd.android.package-archive");
+
+                      long downloadId = downloadManager.enqueue(request);
+
+                      BroadcastReceiver onComplete = new BroadcastReceiver() {
+                          @Override
+                          public void onReceive(Context c, Intent intent) {
+                              long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+                              if (id == downloadId) {
+                                  try {
+                                      context.unregisterReceiver(this);
+                                  } catch (Exception ignored) {}
+
+                                  File file = new File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "EstateRadar_latest.apk");
+                                  if (file.exists()) {
+                                      Intent installIntent = new Intent(Intent.ACTION_VIEW);
+                                      installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                      installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                                      Uri fileUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", file);
+                                      installIntent.setDataAndType(fileUri, "application/vnd.android.package-archive");
+                                      context.startActivity(installIntent);
+                                  }
+                              }
+                          }
+                      };
+
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                          context.registerReceiver(onComplete, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), Context.RECEIVER_EXPORTED);
+                      } else {
+                          context.registerReceiver(onComplete, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+                      }
+
+                      call.resolve();
+                  } catch (Exception e) {
+                      call.reject("Failed: " + e.getMessage());
+                  }
+              }
+          }
+          '''
+          with open(updater_plugin_path, 'w') as f:
+              f.write(plugin_java)
+
+          # 4. Register plugin in MainActivity.java
+          main_activity_path = 'android/app/src/main/java/com/estateradar/tracker/MainActivity.java'
+          main_activity_java = '''package com.estateradar.tracker;
+
+          import android.os.Bundle;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  registerPlugin(AppUpdaterPlugin.class);
+                  super.onCreate(savedInstanceState);
+              }
+          }
+          '''
+          with open(main_activity_path, 'w') as f:
+              f.write(main_activity_java)
+
+          # 5. Exclude duplicate kotlin-stdlib-jdk7/8 in android/app/build.gradle and ensure versionCode 3 & versionName 1.0.3
           app_gradle = 'android/app/build.gradle'
           if os.path.exists(app_gradle):
               with open(app_gradle, 'r') as f:
@@ -86,7 +212,7 @@ jobs:
               with open(app_gradle, 'w') as f:
                   f.write(app_content)
 
-          # 3. Apply resolution strategy in root android/build.gradle
+          # 6. Apply resolution strategy in root android/build.gradle
           root_gradle = 'android/build.gradle'
           if os.path.exists(root_gradle):
               with open(root_gradle, 'r') as f:
@@ -99,7 +225,7 @@ jobs:
               }''')
                   with open(root_gradle, 'w') as f:
                       f.write(root_content)
-          print('Successfully patched AndroidManifest.xml and Gradle build configs for v1.0.3!')
+          print('Successfully patched AndroidManifest.xml, Native AppUpdater, and Gradle for v1.0.3!')
           EOF
 
       - name: Build Debug APK via Gradle
