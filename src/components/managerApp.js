@@ -43,6 +43,11 @@ export function renderManagerApp() {
           <button class="agency-code-chip" id="mgrHeaderCodeChip" title="Tap to copy Agency Code">
             <span>Code: <strong>${currentCompany.company_code || 'PRIME'}</strong></span>
           </button>
+          ${state.updateState?.isAvailable ? `
+            <button class="appbar-icon-btn text-green" id="mgrHeaderUpdateBtn" title="Update Available (${state.updateState.version})">
+              📥
+            </button>
+          ` : ''}
           <button class="appbar-icon-btn" id="mgrHeaderSettingsBtn" title="Agency Profile & Settings">
             ⚙️
           </button>
@@ -369,6 +374,11 @@ export function renderManagerApp() {
             </div>
 
             <div class="settings-options-list">
+              <button class="settings-option-item" id="mgrCheckUpdateOptionBtn">
+                <span>App Version</span>
+                <strong class="text-green">${state.updateState?.version || 'v1.0.2'} • Check Updates 📥</strong>
+              </button>
+
               <button class="settings-option-item" id="mgrToggleThemeOptionBtn">
                 <span>Theme</span>
                 <strong>${state.theme === 'light' ? '🌙 Dark Mode' : '☀️ White Mode'}</strong>
@@ -486,6 +496,23 @@ export function bindManagerAppEvents() {
     closeProfileBtn.onclick = () => {
       isProfileModalOpen = false;
       window.dispatchEvent(new CustomEvent('re-render-request'));
+    };
+  }
+
+  // Settings: Check Updates Action
+  const updateOptBtn = document.getElementById('mgrCheckUpdateOptionBtn');
+  if (updateOptBtn) {
+    updateOptBtn.onclick = () => {
+      isProfileModalOpen = false;
+      state.openUpdateModal();
+    };
+  }
+
+  // Header: Update Button Action
+  const headerUpdateBtn = document.getElementById('mgrHeaderUpdateBtn');
+  if (headerUpdateBtn) {
+    headerUpdateBtn.onclick = () => {
+      state.openUpdateModal();
     };
   }
 
