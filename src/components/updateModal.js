@@ -67,8 +67,11 @@ export function renderUpdateModal() {
 
         <!-- Modal Footer Actions -->
         <div class="update-actions-footer">
-          <button class="btn btn-primary btn-full" id="dismissUpdateBtn">
-            ${updateState.isComplete ? 'Done' : 'Close'}
+          <a href="${updateState.downloadUrl || 'https://github.com/darkangle4022211-cpu/estateradar-app/releases/download/v1.0.2/EstateRadar.apk'}" class="btn btn-primary btn-full" id="downloadUpdateOnlineBtn" style="text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            📥 Download & Install ${updateState.version} Online
+          </a>
+          <button class="btn btn-secondary btn-full" id="dismissUpdateBtn" style="margin-top: 8px;">
+            Close
           </button>
         </div>
 
