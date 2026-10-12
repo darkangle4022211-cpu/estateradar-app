@@ -1,9 +1,8 @@
 // EstateRadar — Unified Mobile Manager Console
-// Engineered specifically for Native Android & iOS Phone Screens
+// Clean, Human-Designed Architecture — Zero Dummy Data — Pending Requests Flow
 import L from 'leaflet';
 import { state } from '../state.js';
 import { supabase } from '../services/supabase.js';
-import { HAMZA_FULL_DAY_ROUTE } from '../simulation.js';
 
 let activeManagerTab = 'radar'; // 'radar' | 'team' | 'surveys' | 'alerts'
 let isProfileModalOpen = false;
@@ -17,9 +16,13 @@ let routePolyline = null;
 export function renderManagerApp() {
   const { company, employees, properties, alerts, auth } = state;
   const currentCompany = company || { name: 'EstateRadar Agency', company_code: 'PRIME' };
-  const onDutyCount = employees.filter(e => e.isClockedIn).length;
-  const idleCount = employees.filter(e => e.status === 'idle').length;
-  const selectedEmp = employees.find(e => e.id === selectedSurveyorId);
+  
+  const pendingEmployees = employees.filter(e => e.status === 'pending');
+  const activeEmployees = employees.filter(e => e.status !== 'pending');
+  
+  const onDutyCount = activeEmployees.filter(e => e.isClockedIn).length;
+  const idleCount = activeEmployees.filter(e => e.status === 'idle').length;
+  const selectedEmp = activeEmployees.find(e => e.id === selectedSurveyorId);
 
   return `
     <div class="manager-mobile-layout">
@@ -28,7 +31,7 @@ export function renderManagerApp() {
       <header class="mobile-native-appbar">
         <div class="appbar-brand">
           <div class="appbar-logo-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
               <polyline points="9 12 11 14 15 10"></polyline>
             </svg>
@@ -44,8 +47,13 @@ export function renderManagerApp() {
             <span>Code: <strong>${currentCompany.company_code || 'PRIME'}</strong></span>
           </button>
           ${state.updateState?.isAvailable ? `
-            <button class="appbar-icon-btn text-green" id="mgrHeaderUpdateBtn" title="Update Available (${state.updateState.version})">
-              📥
+            <button class="appbar-icon-btn update-glowing-badge" id="mgrHeaderUpdateBtn" title="Update Available (${state.updateState.version})">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span class="update-glow-dot"></span>
             </button>
           ` : ''}
           <button class="appbar-icon-btn" id="mgrHeaderSettingsBtn" title="Agency Profile & Settings">
@@ -63,17 +71,19 @@ export function renderManagerApp() {
 
           <!-- Floating Map Top Summary Pill -->
           <div class="map-floating-summary-pill">
-            <span class="summary-stat"><strong class="text-green">${onDutyCount}</strong> Active</span>
-            <span class="stat-divider">•</span>
-            <span class="summary-stat ${idleCount > 0 ? 'text-amber' : ''}"><strong class="${idleCount > 0 ? 'text-amber' : ''}">${idleCount}</strong> Idle</span>
+            <span class="summary-stat"><strong class="text-green">${onDutyCount}</strong> Active Staff</span>
             <span class="stat-divider">•</span>
             <span class="summary-stat"><strong>${properties.length}</strong> Surveys</span>
+            ${pendingEmployees.length > 0 ? `
+              <span class="stat-divider">•</span>
+              <span class="summary-stat text-amber"><strong>${pendingEmployees.length}</strong> Pending</span>
+            ` : ''}
           </div>
 
           <!-- Floating Map Quick Actions -->
           <div class="map-floating-quick-controls">
-            <button class="map-float-btn" id="mgrCenterAllBtn" title="Center All Field Units">🎯</button>
-            <button class="map-float-btn" id="mgrRefreshGpsBtn" title="Refresh GPS Telemetry">🔄</button>
+            <button class="map-float-btn" id="mgrCenterAllBtn" title="Center Map">🎯</button>
+            <button class="map-float-btn" id="mgrRefreshGpsBtn" title="Refresh GPS">🔄</button>
           </div>
 
           <!-- Bottom Collapsible Telemetry Sheet -->
@@ -81,7 +91,7 @@ export function renderManagerApp() {
             <div class="bottom-sheet-drag-handle" id="mgrDrawerHandle">
               <div class="drag-bar"></div>
               <div class="drag-handle-header">
-                <span class="drawer-title">Active Field Staff (${employees.length})</span>
+                <span class="drawer-title">Field Staff (${activeEmployees.length})</span>
                 <span class="drawer-arrow-toggle">${isDrawerExpanded ? '▼ Close' : '▲ View Staff'}</span>
               </div>
             </div>
@@ -91,11 +101,11 @@ export function renderManagerApp() {
               <div class="selected-telemetry-card">
                 <div class="telemetry-card-top">
                   <div class="telemetry-avatar" style="background-color: ${selectedEmp.color || '#10b981'}">
-                    ${selectedEmp.avatar || 'AR'}
+                    ${selectedEmp.name.substring(0, 2).toUpperCase()}
                   </div>
                   <div class="telemetry-info">
                     <strong>${selectedEmp.name}</strong>
-                    <span class="text-dim">${selectedEmp.currentAddress || 'Assigned Territory'}</span>
+                    <span class="text-dim">${selectedEmp.currentAddress || 'Field Assigned'}</span>
                   </div>
                   <button class="telemetry-close-btn" id="mgrCloseSelectedEmpBtn">✕</button>
                 </div>
@@ -103,25 +113,26 @@ export function renderManagerApp() {
                 <div class="telemetry-metrics-grid">
                   <div class="metric-box">
                     <span class="m-label">Speed</span>
-                    <strong class="m-val">${selectedEmp.isClockedIn ? selectedEmp.speedKmh : 0} km/h</strong>
+                    <strong class="m-val">${selectedEmp.isClockedIn ? (selectedEmp.speedKmh || 0) : 0} km/h</strong>
                   </div>
                   <div class="metric-box">
                     <span class="m-label">Battery</span>
-                    <strong class="m-val ${selectedEmp.batteryPercent < 20 ? 'text-danger' : ''}">${selectedEmp.batteryPercent}%</strong>
+                    <strong class="m-val">${selectedEmp.batteryPercent || 100}%</strong>
+                  </div>
+                  <div class="metric-box">
+                    <span class="m-label">Surveys</span>
+                    <strong class="m-val">${selectedEmp.surveysToday || 0}</strong>
                   </div>
                   <div class="metric-box">
                     <span class="m-label">Status</span>
-                    <strong class="m-val ${selectedEmp.status === 'idle' ? 'text-amber' : 'text-green'}">
-                      ${selectedEmp.isClockedIn ? (selectedEmp.status === 'idle' ? 'Idle 26m' : 'Moving') : 'Offline'}
+                    <strong class="m-val ${selectedEmp.isClockedIn ? 'text-green' : 'text-dim'}">
+                      ${selectedEmp.isClockedIn ? 'On Duty' : 'Offline'}
                     </strong>
                   </div>
                 </div>
 
-                <div class="telemetry-card-actions">
-                  <button class="btn btn-outline btn-sm" id="mgrReplayEmpTrailBtn">
-                    🎬 Replay Route Trail
-                  </button>
-                  <button class="btn btn-primary btn-sm" id="mgrFocusEmpMapBtn">
+                <div class="telemetry-actions-strip">
+                  <button class="btn btn-primary btn-xs" id="mgrFocusEmpMapBtn">
                     📍 Focus on Map
                   </button>
                 </div>
@@ -130,31 +141,30 @@ export function renderManagerApp() {
 
             <!-- Drawer Staff List -->
             <div class="drawer-staff-list">
-              ${employees.length === 0 ? `
+              ${activeEmployees.length === 0 ? `
                 <div class="drawer-empty-state">
-                  <p>No field surveyors added yet.</p>
-                  <button class="btn btn-outline btn-xs" id="mgrDrawerAddFirstBtn">+ Add First Surveyor</button>
+                  <p>No active field staff yet.</p>
+                  <button class="btn btn-outline btn-xs" id="mgrDrawerAddFirstBtn">+ Add Staff Member</button>
                 </div>
-              ` : employees.map(emp => {
-                const isIdle = emp.status === 'idle';
+              ` : activeEmployees.map(emp => {
                 const isClocked = emp.isClockedIn;
                 return `
                   <div class="mobile-emp-row ${emp.id === selectedSurveyorId ? 'selected' : ''}" data-emp-id="${emp.id}">
                     <div class="emp-row-avatar" style="background-color: ${emp.color || '#10b981'}">
-                      ${emp.avatar}
+                      ${emp.name.substring(0, 2).toUpperCase()}
                     </div>
                     <div class="emp-row-details">
                       <div class="emp-row-name-line">
                         <strong>${emp.name}</strong>
-                        <span class="status-pill ${isClocked ? (isIdle ? 'amber' : 'green') : 'gray'}">
-                          ${!isClocked ? 'Offline' : (isIdle ? 'Idle' : 'Active')}
+                        <span class="status-pill ${isClocked ? 'green' : 'gray'}">
+                          ${isClocked ? 'On Duty' : 'Offline'}
                         </span>
                       </div>
-                      <span class="emp-row-street">${emp.currentAddress || 'On Patrol'}</span>
+                      <span class="emp-row-street">${emp.currentAddress || 'Assigned Territory'}</span>
                     </div>
                     <div class="emp-row-stats">
-                      <span class="row-speed">${isClocked ? emp.speedKmh : 0} km/h</span>
-                      <span class="row-battery">🔋 ${emp.batteryPercent}%</span>
+                      <span class="row-speed">${isClocked ? (emp.speedKmh || 0) : 0} km/h</span>
+                      <span class="row-battery">🔋 ${emp.batteryPercent || 100}%</span>
                     </div>
                   </div>
                 `;
@@ -170,8 +180,8 @@ export function renderManagerApp() {
             <!-- Agency Code Sharing Banner -->
             <div class="agency-code-banner">
               <div class="code-banner-header">
-                <span class="banner-kicker">FIELD AGENT ACTIVATION</span>
-                <h3>Share Your Agency Code</h3>
+                <span class="banner-kicker">AGENCY CODE</span>
+                <h3>Share with Field Employees</h3>
               </div>
               <div class="code-banner-box">
                 <span class="code-large">${currentCompany.company_code || 'PRIME'}</span>
@@ -180,47 +190,79 @@ export function renderManagerApp() {
                 </button>
               </div>
               <p class="code-banner-help">
-                Instruct your surveyors to install the EstateRadar app, select <strong>Field Surveyor</strong>, and enter code <strong>${currentCompany.company_code || 'PRIME'}</strong> to sign in.
+                Employees enter code <strong>${currentCompany.company_code || 'PRIME'}</strong> when signing in or requesting to join on their phones.
               </p>
             </div>
+
+            <!-- PENDING JOIN REQUESTS (USER CORE REQUIREMENT) -->
+            ${pendingEmployees.length > 0 ? `
+              <div class="pending-approval-box">
+                <div class="pending-box-header">
+                  <div class="pending-tag-count">🔔 ${pendingEmployees.length} Pending</div>
+                  <h4>Staff Join Requests</h4>
+                </div>
+                <p class="pending-sub-desc">These employees registered with code <strong>${currentCompany.company_code}</strong> and need your approval to access the app.</p>
+                
+                <div class="pending-cards-list">
+                  ${pendingEmployees.map(p => `
+                    <div class="pending-emp-card">
+                      <div class="pending-emp-meta">
+                        <div class="pending-avatar">${p.name.substring(0, 2).toUpperCase()}</div>
+                        <div class="pending-text">
+                          <strong>${p.name}</strong>
+                          <span class="text-dim">@${p.username} ${p.phone ? `• ${p.phone}` : ''}</span>
+                        </div>
+                      </div>
+                      <div class="pending-card-buttons">
+                        <button class="btn btn-primary btn-sm" data-approve-id="${p.id}">
+                          ✓ Accept
+                        </button>
+                        <button class="btn btn-secondary btn-sm" data-reject-id="${p.id}">
+                          ✕ Decline
+                        </button>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
 
             <!-- Team Actions Row -->
             <div class="team-header-row">
               <div>
-                <h4>Field Surveyors (${employees.length})</h4>
+                <h4>Active Staff (${activeEmployees.length})</h4>
                 <span class="text-dim">Manage credentials & field assignments</span>
               </div>
               <button class="btn btn-primary btn-sm" id="teamAddSurveyorModalBtn">
-                + Add Surveyor
+                + Add Employee
               </button>
             </div>
 
-            <!-- Surveyors List -->
+            <!-- Active Surveyors List -->
             <div class="team-cards-stack">
-              ${employees.length === 0 ? `
+              ${activeEmployees.length === 0 ? `
                 <div class="empty-placeholder-card">
                   <div class="empty-icon">👷</div>
-                  <h4>No surveyors in your agency yet</h4>
-                  <p>Tap below to create surveyor credentials for your field team.</p>
-                  <button class="btn btn-primary" id="teamAddFirstSurveyorBtn">+ Add Field Surveyor</button>
+                  <h4>No active employees yet</h4>
+                  <p>Share Agency Code <strong>${currentCompany.company_code || 'PRIME'}</strong> for employees to request access, or add them directly below.</p>
+                  <button class="btn btn-primary" id="teamAddFirstSurveyorBtn">+ Add Employee</button>
                 </div>
-              ` : employees.map(emp => {
-                const isIdle = emp.status === 'idle';
+              ` : activeEmployees.map(emp => {
                 const isClocked = emp.isClockedIn;
                 return `
                   <div class="team-surveyor-card" data-emp-id="${emp.id}">
                     <div class="surveyor-card-header">
                       <div class="surveyor-profile-group">
                         <div class="surveyor-avatar-circle" style="background-color: ${emp.color || '#10b981'}">
-                          ${emp.avatar}
+                          ${emp.name.substring(0, 2).toUpperCase()}
                         </div>
                         <div>
                           <strong class="surveyor-full-name">${emp.name}</strong>
                           <span class="surveyor-username">@${emp.username || emp.id}</span>
                         </div>
                       </div>
-                      <span class="status-pill ${isClocked ? (isIdle ? 'amber' : 'green') : 'gray'}">
-                        ${!isClocked ? 'Offline' : (isIdle ? 'Idle 26m' : 'Moving')}
+                      <span class="status-pill ${isClocked ? 'green' : 'gray'}">
+                        ${isClocked ? 'On Duty' : 'Offline'}
                       </span>
                     </div>
 
@@ -230,8 +272,8 @@ export function renderManagerApp() {
                     </div>
 
                     <div class="surveyor-metrics-row">
-                      <div class="m-chip">🚗 <strong>${isClocked ? emp.speedKmh : 0} km/h</strong></div>
-                      <div class="m-chip">🔋 <strong>${emp.batteryPercent}%</strong></div>
+                      <div class="m-chip">🚗 <strong>${isClocked ? (emp.speedKmh || 0) : 0} km/h</strong></div>
+                      <div class="m-chip">🔋 <strong>${emp.batteryPercent || 100}%</strong></div>
                       <div class="m-chip">📷 <strong>${emp.surveysToday || 0} surveys</strong></div>
                     </div>
 
@@ -239,8 +281,8 @@ export function renderManagerApp() {
                       <button class="btn btn-outline btn-xs" data-jump-to-radar="${emp.id}">
                         🗺️ View on Map
                       </button>
-                      <button class="btn btn-outline btn-xs" data-quick-reset-pass="${emp.id}">
-                        🔑 Reset Password
+                      <button class="btn btn-ghost btn-xs text-danger" data-remove-emp-id="${emp.id}">
+                        Remove
                       </button>
                     </div>
                   </div>
@@ -251,113 +293,106 @@ export function renderManagerApp() {
           </div>
         </div>
 
-        <!-- ================= TAB 3: SURVEYS (PROPERTY AUDITS) ================= -->
+        <!-- ================= TAB 3: SURVEYS ================= -->
         <div class="manager-tab-pane ${activeManagerTab === 'surveys' ? 'active' : ''}" id="mgrPaneSurveys">
           <div class="tab-scroll-container">
-            
-            <div class="surveys-header-row">
+            <div class="team-header-row">
               <div>
-                <h4>Verified Surveys (${properties.length})</h4>
-                <span class="text-dim">Cryptographic GPS-verified property dossiers</span>
+                <h4>Property Surveys (${properties.length})</h4>
+                <span class="text-dim">Real verified surveys submitted by staff</span>
               </div>
-              <button class="btn btn-primary btn-sm" id="mgrAddSurveyDirectBtn">
-                + Log Survey
-              </button>
             </div>
 
-            <div class="properties-feed-list">
+            <div class="surveys-feed-stack">
               ${properties.length === 0 ? `
                 <div class="empty-placeholder-card">
                   <div class="empty-icon">🏠</div>
-                  <h4>No surveys logged yet</h4>
-                  <p>When field agents photograph properties on duty, they stream here with verified GNSS coordinates.</p>
-                  <button class="btn btn-primary" id="mgrAddFirstSurveyBtn">+ Log Property Survey</button>
+                  <h4>No property surveys yet</h4>
+                  <p>When your field staff submit property surveys with GPS photos, they will appear here in real time.</p>
                 </div>
               ` : properties.map(prop => `
-                <div class="property-feed-card" data-prop-id="${prop.id}">
-                  <div class="prop-card-media-wrap">
-                    <img src="${prop.imageUrl}" alt="${prop.address}" class="prop-card-thumbnail" loading="lazy" />
-                    <span class="prop-card-watermark-tag">ESTATERADAR VERIFIED</span>
-                    <span class="prop-card-demand-tag">${prop.demand}</span>
-                  </div>
-
-                  <div class="prop-card-body">
-                    <h4 class="prop-card-address">${prop.address}</h4>
-                    <span class="prop-card-type-row">${prop.type} • ${prop.area}</span>
-                    
-                    <div class="prop-card-verified-strip">
-                      <span class="verified-glyph">✓</span>
-                      <span>GPS Verified (±${prop.accuracyMeters || 4}m) • Surveyor: ${prop.surveyorName || 'Unit 01'}</span>
+                <div class="verified-survey-card" data-prop-id="${prop.id}">
+                  ${prop.imageUrl ? `
+                    <div class="survey-card-media-box">
+                      <img src="${prop.imageUrl}" alt="${prop.address}" class="survey-card-img" />
+                      <span class="survey-type-badge">${prop.type || 'Property'}</span>
                     </div>
-
-                    <div class="prop-card-footer">
-                      <span class="prop-owner-info">👤 ${prop.ownerName || 'Direct Owner'}</span>
-                      <button class="btn btn-outline btn-xs prop-view-dossier-btn" data-prop-id="${prop.id}">
-                        Audit Dossier ›
-                      </button>
+                  ` : ''}
+                  <div class="survey-card-body">
+                    <div class="survey-card-price-row">
+                      <strong class="survey-demand-price">${prop.demand || 'Price on Request'}</strong>
+                      <span class="survey-verified-chip">✓ GPS Verified</span>
                     </div>
+                    <h4 class="survey-card-address">${prop.address}</h4>
+                    <div class="survey-meta-footer">
+                      <span>👤 ${prop.surveyorName || 'Staff'}</span>
+                      <span>🕒 ${prop.timestamp || 'Today'}</span>
+                    </div>
+                    ${prop.ownerPhone ? `
+                      <div class="survey-contact-row">
+                        <span>Owner: <strong>${prop.ownerName || 'Contact'}</strong> (${prop.ownerPhone})</span>
+                      </div>
+                    ` : ''}
                   </div>
                 </div>
               `).join('')}
             </div>
-
           </div>
         </div>
 
-        <!-- ================= TAB 4: ALERTS (LIVE TELEMETRY) ================= -->
+        <!-- ================= TAB 4: ALERTS ================= -->
         <div class="manager-tab-pane ${activeManagerTab === 'alerts' ? 'active' : ''}" id="mgrPaneAlerts">
           <div class="tab-scroll-container">
-            
-            <div class="alerts-header-row">
+            <div class="team-header-row">
               <div>
-                <h4>Telemetry & Audit Alerts</h4>
-                <span class="text-dim">Real-time slacking detection & compliance events</span>
+                <h4>System & Security Alerts</h4>
+                <span class="text-dim">Real-time workforce notifications</span>
               </div>
             </div>
 
             <div class="alerts-feed-stack">
-              ${alerts.map(alt => `
-                <div class="alert-feed-item alert-type-${alt.severity || 'info'}">
-                  <div class="alert-icon-wrap">
-                    ${alt.severity === 'warning' ? '⚠️' : alt.severity === 'success' ? '✓' : 'ℹ️'}
+              ${alerts.length === 0 ? `
+                <div class="empty-placeholder-card">
+                  <div class="empty-icon">⚡</div>
+                  <h4>All operations normal</h4>
+                  <p>Staff check-ins, route movements, and property surveys will be recorded here.</p>
+                </div>
+              ` : alerts.map(alt => `
+                <div class="audit-alert-card severity-${alt.severity || 'info'}">
+                  <div class="alert-card-top">
+                    <strong>${alt.title}</strong>
+                    <span class="alert-time">${alt.timestamp || ''}</span>
                   </div>
-                  <div class="alert-content-group">
-                    <div class="alert-title-row">
-                      <strong>${alt.title}</strong>
-                      <span class="alert-timestamp">${alt.timestamp}</span>
-                    </div>
-                    <p class="alert-message">${alt.message}</p>
-                  </div>
+                  <p class="alert-card-msg">${alt.message}</p>
                 </div>
               `).join('')}
             </div>
-
           </div>
         </div>
 
       </main>
 
-      <!-- Bottom Native Navigation Bar -->
+      <!-- Bottom Material 3 Navigation Bar -->
       <nav class="manager-bottom-nav">
-        <button class="bnav-tab-btn ${activeManagerTab === 'radar' ? 'active' : ''}" data-target-tab="radar">
-          <span class="bnav-icon">🗺️</span>
-          <span class="bnav-label">Radar</span>
+        <button class="mgr-nav-item ${activeManagerTab === 'radar' ? 'active' : ''}" id="mgrTabBtnRadar">
+          <span class="nav-icon">🗺️</span>
+          <span class="nav-label">Radar</span>
         </button>
-        <button class="bnav-tab-btn ${activeManagerTab === 'team' ? 'active' : ''}" data-target-tab="team">
-          <span class="bnav-icon">👷</span>
-          <span class="bnav-label">Team</span>
+        <button class="mgr-nav-item ${activeManagerTab === 'team' ? 'active' : ''}" id="mgrTabBtnTeam">
+          <span class="nav-icon">👥</span>
+          <span class="nav-label">Team ${pendingEmployees.length > 0 ? `(${pendingEmployees.length})` : ''}</span>
         </button>
-        <button class="bnav-tab-btn ${activeManagerTab === 'surveys' ? 'active' : ''}" data-target-tab="surveys">
-          <span class="bnav-icon">🏠</span>
-          <span class="bnav-label">Surveys</span>
+        <button class="mgr-nav-item ${activeManagerTab === 'surveys' ? 'active' : ''}" id="mgrTabBtnSurveys">
+          <span class="nav-icon">📋</span>
+          <span class="nav-label">Surveys</span>
         </button>
-        <button class="bnav-tab-btn ${activeManagerTab === 'alerts' ? 'active' : ''}" data-target-tab="alerts">
-          <span class="bnav-icon">⚡</span>
-          <span class="bnav-label">Alerts</span>
+        <button class="mgr-nav-item ${activeManagerTab === 'alerts' ? 'active' : ''}" id="mgrTabBtnAlerts">
+          <span class="nav-icon">⚡</span>
+          <span class="nav-label">Alerts</span>
         </button>
       </nav>
 
-      <!-- Profile & Settings Modal -->
+      <!-- Agency Profile & Settings Modal -->
       <div class="modal-overlay ${isProfileModalOpen ? '' : 'hidden'}" id="mgrProfileModal">
         <div class="modal-container mobile-settings-modal">
           <div class="modal-header-simple">
@@ -390,8 +425,8 @@ export function renderManagerApp() {
               </div>
 
               <div class="settings-option-item">
-                <span>Agency Data Security</span>
-                <strong class="text-green">Multi-Tenant Isolated</strong>
+                <span>Data Isolation</span>
+                <strong class="text-green">Multi-Tenant Protected</strong>
               </div>
             </div>
 
@@ -404,47 +439,46 @@ export function renderManagerApp() {
         </div>
       </div>
 
-      <!-- Add Field Surveyor Modal -->
+      <!-- Add Field Employee Modal -->
       <div class="modal-overlay ${isAddSurveyorModalOpen ? '' : 'hidden'}" id="mgrAddSurveyorModal">
         <div class="modal-container mobile-add-surveyor-modal">
           <div class="modal-header-simple">
-            <h4>Add New Field Surveyor</h4>
+            <h4>Add New Field Employee</h4>
             <button class="close-modal-icon" id="mgrCloseAddSurveyorModalBtn">✕</button>
           </div>
 
           <form id="mgrAddSurveyorForm" class="add-surveyor-form-body">
-            <p class="modal-subtext">Create credentials for a surveyor under Agency Code <strong>${currentCompany.company_code || 'PRIME'}</strong>.</p>
+            <p class="modal-subtext">Create credentials for staff under Agency Code <strong>${currentCompany.company_code || 'PRIME'}</strong>.</p>
             
             <div class="login-field-group">
-              <label class="field-label" for="newSurveyorName">Surveyor Full Name</label>
+              <label class="field-label" for="newSurveyorName">Full Name</label>
               <input type="text" id="newSurveyorName" class="login-text-input" placeholder="e.g. Hamza Tariq" required />
             </div>
 
             <div class="login-field-group">
-              <label class="field-label" for="newSurveyorUser">Staff Username / ID</label>
-              <input type="text" id="newSurveyorUser" class="login-text-input" placeholder="e.g. surveyor03" required />
+              <label class="field-label" for="newSurveyorUser">Username</label>
+              <input type="text" id="newSurveyorUser" class="login-text-input" placeholder="e.g. hamza" required />
             </div>
 
             <div class="login-field-group">
-              <label class="field-label" for="newSurveyorTerritory">Assigned Territory / Area</label>
-              <input type="text" id="newSurveyorTerritory" class="login-text-input" placeholder="e.g. Gulberg III & Model Town" required />
+              <label class="field-label" for="newSurveyorPass">Password</label>
+              <input type="password" id="newSurveyorPass" class="login-text-input" placeholder="Password for staff to sign in" required />
             </div>
 
             <div class="login-field-group">
-              <label class="field-label" for="newSurveyorPhone">Phone Number</label>
-              <input type="tel" id="newSurveyorPhone" class="login-text-input" placeholder="e.g. +92 300 1234567" />
-            </div>
-
-            <div class="login-field-group">
-              <label class="field-label" for="newSurveyorPass">Initial Password</label>
-              <input type="password" id="newSurveyorPass" class="login-text-input" placeholder="e.g. Pass@2026" value="Pass@2026" required />
+              <label class="field-label" for="newSurveyorPhone">Phone Number (Optional)</label>
+              <input type="tel" id="newSurveyorPhone" class="login-text-input" placeholder="+92 300 1234567" />
             </div>
 
             <div id="addSurveyorError" class="login-error-alert hidden"></div>
 
-            <div class="modal-actions-footer">
-              <button type="button" class="btn btn-secondary" id="mgrCancelAddSurveyorBtn">Cancel</button>
-              <button type="submit" class="btn btn-primary" id="mgrSubmitAddSurveyorBtn">Add Surveyor</button>
+            <div class="add-surveyor-actions">
+              <button type="submit" class="btn btn-primary btn-full" id="mgrSubmitAddSurveyorBtn">
+                Create & Activate Staff
+              </button>
+              <button type="button" class="btn btn-secondary btn-full" id="mgrCancelAddSurveyorBtn">
+                Cancel
+              </button>
             </div>
           </form>
         </div>
@@ -455,35 +489,42 @@ export function renderManagerApp() {
 }
 
 export function bindManagerAppEvents() {
-  // Bottom Navigation Switching
-  document.querySelectorAll('.bnav-tab-btn').forEach(btn => {
-    btn.onclick = () => {
-      const tab = btn.getAttribute('data-target-tab');
-      if (tab) {
-        activeManagerTab = tab;
-        isDrawerExpanded = false;
+  // Tab Switching
+  const bindTab = (btnId, tabName) => {
+    const btn = document.getElementById(btnId);
+    if (btn) {
+      btn.onclick = () => {
+        activeManagerTab = tabName;
         window.dispatchEvent(new CustomEvent('re-render-request'));
-      }
-    };
-  });
+      };
+    }
+  };
 
-  // Header Agency Code copy
-  const codeChip = document.getElementById('mgrHeaderCodeChip');
-  const codeActionBtn = document.getElementById('teamCopyCodeActionBtn');
-  const copyHandler = () => {
+  bindTab('mgrTabBtnRadar', 'radar');
+  bindTab('mgrTabBtnTeam', 'team');
+  bindTab('mgrTabBtnSurveys', 'surveys');
+  bindTab('mgrTabBtnAlerts', 'alerts');
+
+  // Copy Agency Code
+  const copyCode = () => {
     const code = state.company?.company_code || 'PRIME';
     if (navigator.clipboard) {
       navigator.clipboard.writeText(code).then(() => {
-        alert(`Agency Code "${code}" copied to clipboard! Share this with your field staff.`);
+        alert(`Agency Code "${code}" copied to clipboard!`);
+      }).catch(() => {
+        alert(`Agency Code: ${code}`);
       });
     } else {
       alert(`Agency Code: ${code}`);
     }
   };
-  if (codeChip) codeChip.onclick = copyHandler;
-  if (codeActionBtn) codeActionBtn.onclick = copyHandler;
 
-  // Header Settings / Profile
+  const codeChip = document.getElementById('mgrHeaderCodeChip');
+  const copyBtn = document.getElementById('teamCopyCodeActionBtn');
+  if (codeChip) codeChip.onclick = copyCode;
+  if (copyBtn) copyBtn.onclick = copyCode;
+
+  // Settings Modal Open/Close
   const settingsBtn = document.getElementById('mgrHeaderSettingsBtn');
   const closeProfileBtn = document.getElementById('mgrCloseProfileModalBtn');
   if (settingsBtn) {
@@ -531,7 +572,6 @@ export function bindManagerAppEvents() {
       if (confirm('Are you sure you want to sign out of this agency?')) {
         isProfileModalOpen = false;
         state.logout();
-        window.dispatchEvent(new CustomEvent('re-render-request'));
       }
     };
   }
@@ -546,33 +586,11 @@ export function bindManagerAppEvents() {
     };
   }
 
-  // Map Recenter
-  const recenterBtn = document.getElementById('mgrCenterAllBtn');
-  if (recenterBtn) {
-    recenterBtn.onclick = () => {
-      if (mapInstance) {
-        mapInstance.setView([31.49, 74.35], 13);
-      }
-    };
-  }
-
-  // Map Refresh
-  const refreshBtn = document.getElementById('mgrRefreshGpsBtn');
-  if (refreshBtn) {
-    refreshBtn.onclick = () => {
-      alert('GPS telemetry synchronized from cloud!');
-    };
-  }
-
   // Close Selected Surveyor
-  const closeSelBtn = document.getElementById('mgrCloseSelectedEmpBtn');
-  if (closeSelBtn) {
-    closeSelBtn.onclick = () => {
+  const closeSelectedBtn = document.getElementById('mgrCloseSelectedEmpBtn');
+  if (closeSelectedBtn) {
+    closeSelectedBtn.onclick = () => {
       selectedSurveyorId = null;
-      if (routePolyline && mapInstance) {
-        mapInstance.removeLayer(routePolyline);
-        routePolyline = null;
-      }
       window.dispatchEvent(new CustomEvent('re-render-request'));
     };
   }
@@ -582,26 +600,10 @@ export function bindManagerAppEvents() {
   if (focusEmpBtn) {
     focusEmpBtn.onclick = () => {
       const emp = state.employees.find(e => e.id === selectedSurveyorId);
-      if (emp && emp.coordinates && mapInstance) {
-        mapInstance.flyTo([emp.coordinates.lat, emp.coordinates.lng], 16);
+      const coords = emp?.currentCoords || emp?.coordinates;
+      if (coords && mapInstance) {
+        mapInstance.flyTo([coords.lat, coords.lng], 16);
       }
-    };
-  }
-
-  // Replay Route Trail
-  const replayTrailBtn = document.getElementById('mgrReplayEmpTrailBtn');
-  if (replayTrailBtn) {
-    replayTrailBtn.onclick = () => {
-      if (!mapInstance) return;
-      if (routePolyline) mapInstance.removeLayer(routePolyline);
-      const latlngs = HAMZA_FULL_DAY_ROUTE.map(p => [p.lat, p.lng]);
-      routePolyline = L.polyline(latlngs, {
-        color: '#10b981',
-        weight: 4,
-        dashArray: '8, 8',
-        opacity: 0.9
-      }).addTo(mapInstance);
-      mapInstance.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
     };
   }
 
@@ -612,8 +614,9 @@ export function bindManagerAppEvents() {
       if (empId) {
         selectedSurveyorId = empId;
         const emp = state.employees.find(e => e.id === empId);
-        if (emp && emp.coordinates && mapInstance) {
-          mapInstance.flyTo([emp.coordinates.lat, emp.coordinates.lng], 15);
+        const coords = emp?.currentCoords || emp?.coordinates;
+        if (coords && mapInstance) {
+          mapInstance.flyTo([coords.lat, coords.lng], 15);
         }
         window.dispatchEvent(new CustomEvent('re-render-request'));
       }
@@ -627,6 +630,36 @@ export function bindManagerAppEvents() {
       selectedSurveyorId = empId;
       activeManagerTab = 'radar';
       window.dispatchEvent(new CustomEvent('re-render-request'));
+    };
+  });
+
+  // Remove Employee
+  document.querySelectorAll('[data-remove-emp-id]').forEach(btn => {
+    btn.onclick = () => {
+      const empId = btn.getAttribute('data-remove-emp-id');
+      if (confirm('Remove this employee from your agency roster?')) {
+        state.rejectEmployee(empId);
+        window.dispatchEvent(new CustomEvent('re-render-request'));
+      }
+    };
+  });
+
+  // PENDING JOIN REQUEST ACTIONS (APPROVE / REJECT)
+  document.querySelectorAll('[data-approve-id]').forEach(btn => {
+    btn.onclick = () => {
+      const empId = btn.getAttribute('data-approve-id');
+      state.approveEmployee(empId);
+      window.dispatchEvent(new CustomEvent('re-render-request'));
+    };
+  });
+
+  document.querySelectorAll('[data-reject-id]').forEach(btn => {
+    btn.onclick = () => {
+      const empId = btn.getAttribute('data-reject-id');
+      if (confirm('Decline this staff request?')) {
+        state.rejectEmployee(empId);
+        window.dispatchEvent(new CustomEvent('re-render-request'));
+      }
     };
   });
 
@@ -655,68 +688,64 @@ export function bindManagerAppEvents() {
   // Add Surveyor Form Submit
   const addSurveyorForm = document.getElementById('mgrAddSurveyorForm');
   if (addSurveyorForm) {
-    addSurveyorForm.onsubmit = async (e) => {
+    addSurveyorForm.onsubmit = (e) => {
       e.preventDefault();
       const name = document.getElementById('newSurveyorName').value.trim();
       const username = document.getElementById('newSurveyorUser').value.trim().toLowerCase();
-      const territory = document.getElementById('newSurveyorTerritory').value.trim();
-      const phone = document.getElementById('newSurveyorPhone').value.trim();
       const password = document.getElementById('newSurveyorPass').value.trim();
+      const phone = document.getElementById('newSurveyorPhone').value.trim();
       const errBox = document.getElementById('addSurveyorError');
       const submitBtn = document.getElementById('mgrSubmitAddSurveyorBtn');
 
       if (submitBtn) submitBtn.disabled = true;
       if (errBox) errBox.classList.add('hidden');
 
-      const newEmp = {
-        id: 'emp_' + Date.now(),
-        company_id: state.company?.id || 'comp_demo',
-        name: name,
-        username: username,
-        phone: phone || '+92 300 0000000',
-        avatar: name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase(),
-        color: '#10b981',
-        status: 'moving',
-        speedKmh: 15,
-        batteryPercent: 95,
-        isClockedIn: true,
-        currentAddress: territory,
-        coordinates: { lat: 31.4728, lng: 74.4021 },
-        surveysToday: 0
-      };
+      const res = state.createEmployee({
+        name,
+        username,
+        password,
+        phone,
+        role: 'Field Surveyor'
+      });
 
-      state.employees.unshift(newEmp);
-      isAddSurveyorModalOpen = false;
-      alert(`Surveyor "${name}" created!\nUsername: ${username}\nPassword: ${password}\nAgency Code: ${state.company?.company_code || 'PRIME'}`);
-      window.dispatchEvent(new CustomEvent('re-render-request'));
+      if (submitBtn) submitBtn.disabled = false;
+
+      if (!res.success) {
+        if (errBox) {
+          errBox.innerText = res.error || 'Failed to add employee.';
+          errBox.classList.remove('hidden');
+        }
+      } else {
+        isAddSurveyorModalOpen = false;
+        alert(`Employee "${name}" created!\nUsername: ${username}\nPassword: ${password}\nAgency Code: ${state.company?.company_code || 'PRIME'}`);
+        window.dispatchEvent(new CustomEvent('re-render-request'));
+      }
     };
   }
 
-  // Quick reset password
-  document.querySelectorAll('[data-quick-reset-pass]').forEach(btn => {
-    btn.onclick = () => {
-      const empId = btn.getAttribute('data-quick-reset-pass');
-      const emp = state.employees.find(e => e.id === empId);
-      if (emp) {
-        const newPass = prompt(`Enter new password for ${emp.name}:`, 'Pass@2026');
-        if (newPass) {
-          alert(`Password for ${emp.name} updated to "${newPass}".`);
+  // Refresh & Center Map
+  const centerBtn = document.getElementById('mgrCenterAllBtn');
+  if (centerBtn) {
+    centerBtn.onclick = () => {
+      if (mapInstance) {
+        if (typeof navigator !== 'undefined' && navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(pos => {
+            mapInstance.flyTo([pos.coords.latitude, pos.coords.longitude], 15);
+          });
         }
       }
     };
-  });
+  }
 
-  // Audit Property Dossier click
-  document.querySelectorAll('.prop-view-dossier-btn').forEach(btn => {
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      const propId = btn.getAttribute('data-prop-id');
-      const prop = state.properties.find(p => p.id === propId);
-      if (prop) {
-        window.dispatchEvent(new CustomEvent('open-property-dossier', { detail: prop }));
+  const refreshGpsBtn = document.getElementById('mgrRefreshGpsBtn');
+  if (refreshGpsBtn) {
+    refreshGpsBtn.onclick = () => {
+      state.loadCompanyData();
+      if (mapInstance) {
+        setTimeout(() => mapInstance.invalidateSize(), 50);
       }
     };
-  });
+  }
 
   // Initialize Map if on Radar tab
   if (activeManagerTab === 'radar') {
@@ -738,34 +767,44 @@ function initMobileMap() {
     mapMarkers = {};
   }
 
-  // Center around Lahore or surveyor coordinates
-  const firstEmp = state.employees[0];
-  const centerLat = firstEmp?.coordinates?.lat || 31.485;
-  const centerLng = firstEmp?.coordinates?.lng || 74.35;
+  // Center on active employee or real device coordinates
+  const activeEmpWithCoords = state.employees.find(e => (e.currentCoords || e.coordinates) && e.status !== 'pending');
+  const defaultLat = activeEmpWithCoords?.currentCoords?.lat || activeEmpWithCoords?.coordinates?.lat || 31.5204;
+  const defaultLng = activeEmpWithCoords?.currentCoords?.lng || activeEmpWithCoords?.coordinates?.lng || 74.3587;
 
   mapInstance = L.map(container, {
     zoomControl: false,
     attributionControl: false
-  }).setView([centerLat, centerLng], 13);
+  }).setView([defaultLat, defaultLng], 13);
 
-  // CartoDB Dark Matter tiles (modern sleek dark map)
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    maxZoom: 19
+  // Reliable OpenStreetMap tiles (no API key required)
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
   }).addTo(mapInstance);
 
-  // Add Surveyor Markers
-  state.employees.forEach(emp => {
-    if (!emp.coordinates) return;
+  // If no employees with coordinates, center on real device position
+  if (!activeEmpWithCoords && typeof navigator !== 'undefined' && navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      if (mapInstance) {
+        mapInstance.setView([pos.coords.latitude, pos.coords.longitude], 14);
+      }
+    }, () => {}, { timeout: 4000 });
+  }
+
+  // Add Real Active Staff Markers
+  state.employees.filter(e => e.status !== 'pending').forEach(emp => {
+    const coords = emp.currentCoords || emp.coordinates;
+    if (!coords) return;
     const isClocked = emp.isClockedIn;
-    const isIdle = emp.status === 'idle';
-    const markerColor = isClocked ? (isIdle ? '#f59e0b' : '#10b981') : '#71717a';
+    const markerColor = isClocked ? '#10b981' : '#71717a';
 
     const customIcon = L.divIcon({
       className: 'custom-mobile-marker',
       html: `
         <div class="marker-pulse-wrapper" style="--pulse-color: ${markerColor}">
           <div class="marker-inner-dot" style="background-color: ${markerColor}">
-            <span>${emp.avatar}</span>
+            <span>${emp.name.substring(0, 2).toUpperCase()}</span>
           </div>
           <span class="marker-name-tag">${emp.name.split(' ')[0]}</span>
         </div>
@@ -774,7 +813,7 @@ function initMobileMap() {
       iconAnchor: [18, 18]
     });
 
-    const marker = L.marker([emp.coordinates.lat, emp.coordinates.lng], { icon: customIcon }).addTo(mapInstance);
+    const marker = L.marker([coords.lat, coords.lng], { icon: customIcon }).addTo(mapInstance);
     marker.on('click', () => {
       selectedSurveyorId = emp.id;
       isDrawerExpanded = true;
@@ -783,7 +822,7 @@ function initMobileMap() {
     mapMarkers[emp.id] = marker;
   });
 
-  // Add Property Pins
+  // Add Real Property Survey Pins
   state.properties.forEach(prop => {
     if (!prop.coordinates) return;
     const propIcon = L.divIcon({
@@ -803,8 +842,7 @@ function initMobileMap() {
     });
   });
 
-  // Invalidate map size to ensure rendering
-  setTimeout(() => {
-    if (mapInstance) mapInstance.invalidateSize();
-  }, 100);
+  // Ensure map tiles render without grey boxes
+  setTimeout(() => { if (mapInstance) mapInstance.invalidateSize(); }, 60);
+  setTimeout(() => { if (mapInstance) mapInstance.invalidateSize(); }, 300);
 }
