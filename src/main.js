@@ -1,6 +1,7 @@
 // EstateRadar — Main Application Router & Entry
 // Clean, Dedicated Native Mobile Architecture
 import './style.css';
+import 'leaflet/dist/leaflet.css';
 import { state } from './state.js';
 import { simulator } from './simulation.js';
 import { renderLoginScreen, bindLoginScreenEvents } from './components/loginScreen.js';
@@ -69,6 +70,15 @@ export function renderApp() {
 // Global Re-render trigger
 window.addEventListener('re-render-request', () => {
   renderApp();
+});
+
+// Instant Reactive Update Modal trigger
+window.addEventListener('update-modal-changed', () => {
+  const container = document.getElementById('updateModalContainer');
+  if (container) {
+    container.innerHTML = renderUpdateModal();
+    bindUpdateModalEvents();
+  }
 });
 
 // Listen for Property Dossier click
