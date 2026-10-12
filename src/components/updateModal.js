@@ -10,6 +10,9 @@ export function renderUpdateModal() {
 
   const isDownloading = updateState.isDownloading;
   const isComplete = updateState.isComplete;
+  const isAvailable = updateState.isAvailable;
+  const currentVersion = updateState.currentVersion || 'v1.0.3';
+  const targetVersion = updateState.version || currentVersion;
 
   return `
     <div class="update-backdrop" id="updateBackdrop">
@@ -18,15 +21,17 @@ export function renderUpdateModal() {
         <!-- Header -->
         <div class="update-header">
           <div class="update-header-left">
-            <span class="update-tag-pill">Direct In-App Update</span>
-            <h3 class="update-main-title">EstateRadar ${updateState.version}</h3>
+            <span class="update-tag-pill" style="${!isAvailable && !isComplete ? 'color: #10b981; background: rgba(16, 185, 129, 0.12);' : ''}">
+              ${isComplete ? 'Update Ready' : isAvailable ? 'New Update Available' : 'Current Version'}
+            </span>
+            <h3 class="update-main-title">EstateRadar ${targetVersion}</h3>
           </div>
           <button class="update-close-btn" id="closeUpdateSheetBtn" title="Close window">
             ✕
           </button>
         </div>
 
-        <!-- Prominent Safety Message -->
+        <!-- Status Card -->
         <div class="update-safety-card">
           <div class="safety-badge-icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2">
@@ -35,38 +40,50 @@ export function renderUpdateModal() {
             </svg>
           </div>
           <div class="safety-text-group">
-            <h4 class="safety-headline">Auto-updating inside the app</h4>
-            <p class="safety-desc">No external websites or repository pages. The update downloads and installs directly on your device while preserving all your company and surveyor data.</p>
-          </div>
-        </div>
-
-        <!-- Progress Section -->
-        <div class="update-progress-card">
-          <div class="progress-meta-row">
-            <span class="progress-status-text">
+            <h4 class="safety-headline">
               ${isComplete 
-                ? '✅ Download Complete — Launching Installer' 
-                : isDownloading 
-                  ? '⏳ Downloading EstateRadar APK...' 
-                  : 'Ready to auto-update'}
-            </span>
-            <span class="progress-percent-number">${updateState.progressPercent}%</span>
+                ? 'Update downloaded successfully!' 
+                : !isAvailable 
+                  ? 'Your app is up to date' 
+                  : 'Fast in-app background update'}
+            </h4>
+            <p class="safety-desc">
+              ${isComplete 
+                ? 'The update is installed and ready. Click "Reopen App" below to reload the app with the latest version.' 
+                : !isAvailable 
+                  ? `You are currently using ${currentVersion}. All systems and telemetry pipelines are running the latest version.` 
+                  : 'Updates happen directly inside the app with zero external websites or repository pages.'}
+            </p>
           </div>
-
-          <div class="progress-track-bar">
-            <div class="progress-track-fill ${isComplete ? 'complete' : ''}" style="width: ${updateState.progressPercent}%;"></div>
-          </div>
-
-          ${isComplete ? `
-            <div style="margin-top: 10px; padding: 10px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; font-size: 0.78rem; color: #10b981; line-height: 1.45;">
-              📲 <strong>Android Dialog:</strong> Tap <strong>"Update"</strong> when the system installer prompt appears to finish updating in place.
-            </div>
-          ` : ''}
         </div>
 
-        <!-- Release Notes Highlights -->
+        <!-- Progress Section (When updating or completed) -->
+        ${(isDownloading || isComplete) ? `
+          <div class="update-progress-card">
+            <div class="progress-meta-row">
+              <span class="progress-status-text">
+                ${isComplete 
+                  ? '✅ 100% Downloaded — Ready to Reopen' 
+                  : '⏳ Downloading update in background...'}
+              </span>
+              <span class="progress-percent-number">${updateState.progressPercent}%</span>
+            </div>
+
+            <div class="progress-track-bar">
+              <div class="progress-track-fill ${isComplete ? 'complete' : ''}" style="width: ${updateState.progressPercent}%;"></div>
+            </div>
+
+            ${isComplete ? `
+              <div style="margin-top: 10px; padding: 10px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; font-size: 0.78rem; color: #10b981; line-height: 1.45;">
+                📲 <strong>Ready:</strong> Tap <strong>"Reopen App"</strong> below to refresh and load the latest version.
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
+
+        <!-- Release Highlights -->
         <div class="update-notes-block">
-          <div class="notes-header-text">What's new in ${updateState.version}:</div>
+          <div class="notes-header-text">What's in ${targetVersion}:</div>
           <ul class="clean-bullets-list">
             ${updateState.releaseNotes.map(note => `
               <li><span class="bullet-check">✓</span> <span>${note}</span></li>
@@ -76,15 +93,24 @@ export function renderUpdateModal() {
 
         <!-- Modal Footer Actions -->
         <div class="update-actions-footer">
-          <button class="btn btn-primary btn-full" id="downloadUpdateOnlineBtn" style="display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-weight: 700;">
-            ${isDownloading 
-              ? '⏳ Auto-Updating (' + updateState.progressPercent + '%)...' 
-              : isComplete 
-                ? '⚡ Re-launch Installer (' + updateState.version + ')' 
-                : '⚡ Auto-Update Directly Now (' + updateState.version + ')'}
-          </button>
+          ${isComplete ? `
+            <button class="btn btn-primary btn-full" id="reopenAppBtn" style="display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-weight: 700; background: #10b981;">
+              🔄 Reopen App to Apply Update
+            </button>
+          ` : isAvailable ? `
+            <button class="btn btn-primary btn-full" id="downloadUpdateOnlineBtn" style="display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-weight: 700;">
+              ${isDownloading 
+                ? '⏳ Updating (' + updateState.progressPercent + '%)...' 
+                : '⚡ Update to ' + targetVersion + ' Directly'}
+            </button>
+          ` : `
+            <button class="btn btn-primary btn-full" id="checkAgainBtn" style="display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-weight: 700;">
+              ✓ You are up to date (${currentVersion})
+            </button>
+          `}
+          
           <button class="btn btn-secondary btn-full" id="dismissUpdateBtn" style="margin-top: 8px;">
-            Close & Continue in App
+            ${isComplete ? 'Dismiss' : 'Close Window'}
           </button>
         </div>
 
@@ -98,6 +124,8 @@ export function bindUpdateModalEvents() {
   const dismissBtn = document.getElementById('dismissUpdateBtn');
   const backdrop = document.getElementById('updateBackdrop');
   const downloadBtn = document.getElementById('downloadUpdateOnlineBtn');
+  const reopenBtn = document.getElementById('reopenAppBtn');
+  const checkAgainBtn = document.getElementById('checkAgainBtn');
 
   const closeHandler = () => {
     state.closeUpdateModal();
@@ -115,6 +143,20 @@ export function bindUpdateModalEvents() {
     downloadBtn.onclick = (e) => {
       e.preventDefault();
       state.triggerUpdateDownload();
+    };
+  }
+
+  if (reopenBtn) {
+    reopenBtn.onclick = (e) => {
+      e.preventDefault();
+      state.reopenAppWithUpdate();
+    };
+  }
+
+  if (checkAgainBtn) {
+    checkAgainBtn.onclick = (e) => {
+      e.preventDefault();
+      state.checkForUpdatesOnline();
     };
   }
 }
