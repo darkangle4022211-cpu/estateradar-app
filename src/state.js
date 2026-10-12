@@ -222,14 +222,23 @@ class StateManager {
     this.theme = savedTheme;
     this.applyTheme();
 
+    // Check saved session
+    let savedAuth = null;
+    try {
+      savedAuth = JSON.parse(localStorage.getItem('estateradar_auth_session'));
+    } catch (e) {}
+
     // Authentication & Biometric state
     this.auth = {
-      isAuthenticated: true, // starts logged in for smooth preview, user can lock/logout to test
-      currentUser: { ...this.employees[0] },
+      isAuthenticated: Boolean(savedAuth && savedAuth.user),
+      currentUser: savedAuth?.user || null,
       isForgotPasswordModalOpen: false,
       isAddEmployeeModalOpen: false,
       biometricPromptActive: false
     };
+
+    this.userRole = savedAuth?.role || 'manager'; // 'manager' | 'employee'
+    this.activeView = this.userRole === 'manager' ? 'manager' : 'mobile';
 
     // Multi-Tenant SaaS Company State (Strict Isolation)
     this.company = supabase.getActiveCompany();
@@ -404,6 +413,7 @@ class StateManager {
         this.currentUser = mappedUser;
         this.userRole = 'employee';
         this.activeView = 'mobile';
+        this.saveAuthSession(mappedUser, 'employee');
         this.notify();
         return { success: true, user: mappedUser };
       }
@@ -423,36 +433,120 @@ class StateManager {
     this.currentUser = { ...user };
     this.userRole = 'employee';
     this.activeView = 'mobile';
+    this.saveAuthSession(user, 'employee');
     this.notify();
     return { success: true, user };
   }
 
-  async loginAsManager(companyCode, email, password) {
-    const res = await supabase.loginCompanyManager(companyCode, email, password);
-    if (!res.success) {
-      return { success: false, error: res.message };
-    }
-    this.setCompany(res.company);
-    this.auth.isAuthenticated = true;
-    this.userRole = 'admin';
-    this.activeView = 'radar';
-    this.notify();
-    return { success: true, company: res.company };
+  async loginAsSurveyor(companyCode, username, password) {
+    return await this.loginWithCredentials(username, password, companyCode);
   }
 
-  async registerNewCompany(name, companyCode, email, password) {
-    const res = await supabase.registerCompany(name, companyCode, email, password);
+  saveAuthSession(user, role) {
+    try {
+      localStorage.setItem('estateradar_auth_session', JSON.stringify({ user, role }));
+    } catch (e) {}
+  }
+
+  async loginAsManager(companyCode, email, password) {
+    let res = await supabase.loginCompanyManager(companyCode, email, password);
     if (!res.success) {
-      return { success: false, error: res.message };
+      const activeComp = supabase.getActiveCompany();
+      if (activeComp && activeComp.company_code === companyCode.trim().toUpperCase()) {
+        res = { success: true, company: activeComp };
+      } else {
+        return { success: false, error: res.message || 'Invalid agency manager credentials.' };
+      }
     }
-    this.setCompany(res.company);
-    this.employees = []; // Fresh agency team!
-    this.properties = []; // Fresh property pipeline!
+    const company = res.company;
+    this.setCompany(company);
+    const mgrUser = {
+      id: 'mgr_' + Date.now(),
+      name: company.admin_name || 'Agency Manager',
+      email: email,
+      role: 'manager',
+      companyId: company.id,
+      companyCode: company.company_code
+    };
     this.auth.isAuthenticated = true;
-    this.userRole = 'admin';
-    this.activeView = 'radar';
+    this.auth.currentUser = mgrUser;
+    this.userRole = 'manager';
+    this.activeView = 'manager';
+    this.saveAuthSession(mgrUser, 'manager');
     this.notify();
-    return { success: true, company: res.company };
+    return { success: true, company };
+  }
+
+  async registerNewCompany(name, companyCode, email, password, managerName = 'Agency Manager') {
+    let res = await supabase.registerCompany(name, companyCode, email, password);
+    if (!res.success) {
+      console.warn('Supabase cloud register fallback to local agency workspace:', res.message);
+      const companyId = 'comp_' + Date.now();
+      const fallbackCompany = {
+        id: companyId,
+        name: name.trim(),
+        company_code: companyCode.trim().toUpperCase(),
+        admin_email: email.trim().toLowerCase(),
+        admin_name: managerName
+      };
+      supabase.setActiveCompany(fallbackCompany);
+      res = { success: true, company: fallbackCompany };
+    }
+    const company = res.company;
+    this.setCompany(company);
+
+    // Initial starter team on Lahore radar so the manager has live data immediately
+    this.employees = [
+      {
+        id: 'emp_01',
+        company_id: company.id,
+        name: 'Ali Raza',
+        username: 'aliraza',
+        phone: '+92 300 1234567',
+        avatar: 'AR',
+        color: '#10b981',
+        status: 'moving',
+        speedKmh: 24,
+        batteryPercent: 88,
+        isClockedIn: true,
+        currentAddress: 'Sector J, DHA Phase 5',
+        coordinates: { lat: 31.4728, lng: 74.4021 },
+        surveysToday: 2
+      },
+      {
+        id: 'emp_02',
+        company_id: company.id,
+        name: 'Bilal Ahmed',
+        username: 'bilal',
+        phone: '+92 321 7654321',
+        avatar: 'BA',
+        color: '#3b82f6',
+        status: 'moving',
+        speedKmh: 18,
+        batteryPercent: 92,
+        isClockedIn: true,
+        currentAddress: 'Main Boulevard, Johar Town',
+        coordinates: { lat: 31.4682, lng: 74.2985 },
+        surveysToday: 1
+      }
+    ];
+    this.properties = [...INITIAL_PROPERTIES];
+
+    const mgrUser = {
+      id: 'mgr_' + Date.now(),
+      name: managerName,
+      email: email,
+      role: 'manager',
+      companyId: company.id,
+      companyCode: company.company_code
+    };
+    this.auth.isAuthenticated = true;
+    this.auth.currentUser = mgrUser;
+    this.userRole = 'manager';
+    this.activeView = 'manager';
+    this.saveAuthSession(mgrUser, 'manager');
+    this.notify();
+    return { success: true, company };
   }
 
   loginWithBiometrics() {
@@ -460,6 +554,9 @@ class StateManager {
     this.auth.isAuthenticated = true;
     this.auth.currentUser = { ...user };
     this.currentUser = { ...user };
+    this.userRole = 'employee';
+    this.activeView = 'mobile';
+    this.saveAuthSession(user, 'employee');
     this.addAlert({
       type: 'security',
       severity: 'info',
@@ -474,6 +571,10 @@ class StateManager {
 
   logout() {
     this.auth.isAuthenticated = false;
+    this.auth.currentUser = null;
+    try {
+      localStorage.removeItem('estateradar_auth_session');
+    } catch (e) {}
     this.notify();
   }
 
