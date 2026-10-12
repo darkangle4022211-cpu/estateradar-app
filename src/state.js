@@ -6,11 +6,31 @@ import { storage } from './services/storage.js';
 
 const AppUpdater = registerPlugin('AppUpdater');
 
+export const CURRENT_APP_VERSION = 'v1.0.3';
+
+export function normalizeVersion(v) {
+  if (!v) return '0.0.0';
+  return v.toString().trim().replace(/^v/i, '');
+}
+
+export function isNewerVersion(remote, current) {
+  const r = normalizeVersion(remote).split('.').map(n => parseInt(n, 10) || 0);
+  const c = normalizeVersion(current).split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(r.length, c.length); i++) {
+    const rVal = r[i] || 0;
+    const cVal = c[i] || 0;
+    if (rVal > cVal) return true;
+    if (rVal < cVal) return false;
+  }
+  return false;
+}
+
 class StateManager {
   constructor() {
     this.listeners = new Set();
     this.activeView = 'manager';
     this.userRole = 'manager'; // 'manager' | 'employee'
+    this.currentVersion = CURRENT_APP_VERSION;
     
     // Strict Zero-Dummy-Data initial states
     this.employees = [];
@@ -70,18 +90,19 @@ class StateManager {
       this.loadCompanyData();
     }
     
-    // In-App Online Update State
+    // In-App Online Update State — isAvailable is FALSE by default!
     this.updateState = {
-      isAvailable: true,
+      isAvailable: false,
       isModalOpen: false,
-      version: 'v1.0.3',
+      version: CURRENT_APP_VERSION,
+      currentVersion: CURRENT_APP_VERSION,
       downloadUrl: 'https://github.com/darkangle4022211-cpu/estateradar-app/releases/download/v1.0.3/EstateRadar.apk',
       releaseNotes: [
-        'Direct 1-tap in-app online OTA update (no PC or USB cable needed)',
-        'Zero dummy data clean slate — pure enterprise tenant isolation',
-        'Agency Manager pending join request approval & staff management',
-        'Hardware camera with real GPS timestamp and coordinates watermarking',
-        'Fixed contrast theme glitch on authentication & tenant switcher'
+        'Native 1-tap in-app auto-update directly through Android Package Installer',
+        'Real-time online version checking directly against GitHub releases API',
+        'No external redirects to repository or web pages',
+        'Zero dummy data isolated multi-tenant architecture',
+        'Hardware camera GPS timestamp watermark verification'
       ],
       isDownloading: false,
       progressPercent: 0,
@@ -674,15 +695,18 @@ class StateManager {
           const rawRes = await fetch('https://raw.githubusercontent.com/darkangle4022211-cpu/estateradar-app/main/version.json');
           if (rawRes.ok) {
             const vData = await rawRes.json();
-            this.updateState.version = vData.version || 'v1.0.3';
+            const remoteV = vData.version || CURRENT_APP_VERSION;
+            const hasUpdate = isNewerVersion(remoteV, this.currentVersion);
+            this.updateState.version = remoteV;
             this.updateState.downloadUrl = vData.downloadUrl || this.updateState.downloadUrl;
             if (vData.releaseNotes && Array.isArray(vData.releaseNotes)) {
               this.updateState.releaseNotes = vData.releaseNotes;
             }
-            this.updateState.isAvailable = true;
+            this.updateState.isAvailable = hasUpdate;
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('update-modal-changed'));
             }
+            this.notify();
             return;
           }
         } catch (rawErr) {
@@ -691,13 +715,14 @@ class StateManager {
       }
 
       if (releaseData) {
-        const tag = releaseData.tag_name || 'v1.0.3';
+        const tag = releaseData.tag_name || CURRENT_APP_VERSION;
         const apkAsset = releaseData.assets?.find(a => a.name.endsWith('.apk'));
         const directApkUrl = apkAsset ? apkAsset.browser_download_url : `https://github.com/darkangle4022211-cpu/estateradar-app/releases/download/${tag}/EstateRadar.apk`;
         
+        const hasUpdate = isNewerVersion(tag, this.currentVersion);
         this.updateState.version = tag;
         this.updateState.downloadUrl = directApkUrl;
-        this.updateState.isAvailable = true;
+        this.updateState.isAvailable = hasUpdate;
 
         if (releaseData.body) {
           const lines = releaseData.body.split('\n')
@@ -711,6 +736,7 @@ class StateManager {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('update-modal-changed'));
         }
+        this.notify();
       }
     } catch (err) {
       console.warn('checkForUpdatesOnline failed:', err);
@@ -734,6 +760,16 @@ class StateManager {
     this.notify();
   }
 
+  reopenAppWithUpdate() {
+    this.updateState.isAvailable = false;
+    this.updateState.isComplete = false;
+    this.updateState.isModalOpen = false;
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
+    this.notify();
+  }
+
   async triggerUpdateDownload() {
     this.updateState.isDownloading = true;
     this.updateState.progressPercent = 15;
@@ -744,7 +780,7 @@ class StateManager {
 
     const downloadUrl = this.updateState.downloadUrl;
 
-    // 1. If running natively in Android via Capacitor, trigger native AppUpdaterPlugin
+    // 1. If running natively in Android via Capacitor, trigger native AppUpdaterPlugin in background
     let nativeTriggered = false;
     try {
       if (AppUpdater && typeof AppUpdater.startAutoUpdate === 'function') {
@@ -755,8 +791,7 @@ class StateManager {
       console.log('Native AppUpdater plugin call not available or failed:', nativeErr);
     }
 
-    // 2. If not triggered natively (e.g. running in web browser), trigger direct APK download via invisible link
-    // NEVER navigate the window to the GitHub repository web page!
+    // 2. If not triggered natively, download silently without taking user to any webpage
     if (!nativeTriggered && typeof window !== 'undefined') {
       try {
         const a = document.createElement('a');
@@ -791,7 +826,7 @@ class StateManager {
           window.dispatchEvent(new CustomEvent('update-modal-changed'));
         }
       }
-    }, 600);
+    }, 500);
   }
 }
 
