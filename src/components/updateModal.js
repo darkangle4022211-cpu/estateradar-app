@@ -8,6 +8,9 @@ export function renderUpdateModal() {
     return '';
   }
 
+  const isDownloading = updateState.isDownloading;
+  const isComplete = updateState.isComplete;
+
   return `
     <div class="update-backdrop" id="updateBackdrop">
       <div class="update-sheet-container animate-slide-up">
@@ -33,7 +36,7 @@ export function renderUpdateModal() {
           </div>
           <div class="safety-text-group">
             <h4 class="safety-headline">It is safe to close while the app updates.</h4>
-            <p class="safety-desc">You can safely close this window and continue using the app. The update will continue in the background without interrupting your work or GPS tracking.</p>
+            <p class="safety-desc">You can safely close this window and continue using the app. The update will continue downloading in the background without interrupting your work or GPS tracking.</p>
           </div>
         </div>
 
@@ -41,23 +44,29 @@ export function renderUpdateModal() {
         <div class="update-progress-card">
           <div class="progress-meta-row">
             <span class="progress-status-text">
-              ${updateState.isComplete 
-                ? 'Update complete' 
-                : updateState.isDownloading 
-                  ? 'Downloading and installing...' 
-                  : 'Preparing update...'}
+              ${isComplete 
+                ? '✅ APK Download Complete — Ready to Install' 
+                : isDownloading 
+                  ? '⏳ Downloading EstateRadar APK in background...' 
+                  : 'Ready to download'}
             </span>
             <span class="progress-percent-number">${updateState.progressPercent}%</span>
           </div>
 
           <div class="progress-track-bar">
-            <div class="progress-track-fill ${updateState.isComplete ? 'complete' : ''}" style="width: ${updateState.progressPercent}%;"></div>
+            <div class="progress-track-fill ${isComplete ? 'complete' : ''}" style="width: ${updateState.progressPercent}%;"></div>
           </div>
+
+          ${isComplete ? `
+            <div style="margin-top: 10px; padding: 10px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; font-size: 0.78rem; color: #10b981; line-height: 1.45;">
+              📲 <strong>Installation Step:</strong> Swipe down your phone's notification bar and tap <strong>EstateRadar.apk</strong> to complete installation, or open your device's <strong>Downloads</strong> folder.
+            </div>
+          ` : ''}
         </div>
 
         <!-- Release Notes Highlights -->
         <div class="update-notes-block">
-          <div class="notes-header-text">What's new:</div>
+          <div class="notes-header-text">What's new in ${updateState.version}:</div>
           <ul class="clean-bullets-list">
             ${updateState.releaseNotes.map(note => `
               <li><span class="bullet-check">✓</span> <span>${note}</span></li>
@@ -67,11 +76,15 @@ export function renderUpdateModal() {
 
         <!-- Modal Footer Actions -->
         <div class="update-actions-footer">
-          <a href="${updateState.downloadUrl || 'https://github.com/darkangle4022211-cpu/estateradar-app/releases/download/v1.0.2/EstateRadar.apk'}" class="btn btn-primary btn-full" id="downloadUpdateOnlineBtn" style="text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px;">
-            📥 Download & Install ${updateState.version} Online
-          </a>
+          <button class="btn btn-primary btn-full" id="downloadUpdateOnlineBtn" style="display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-weight: 700;">
+            ${isDownloading 
+              ? '⏳ Downloading in Background (' + updateState.progressPercent + '%)...' 
+              : isComplete 
+                ? '📥 Re-download EstateRadar ' + updateState.version + ' APK' 
+                : '📥 Download & Install ' + updateState.version + ' Online'}
+          </button>
           <button class="btn btn-secondary btn-full" id="dismissUpdateBtn" style="margin-top: 8px;">
-            Close
+            Close & Continue in App
           </button>
         </div>
 
@@ -84,6 +97,7 @@ export function bindUpdateModalEvents() {
   const closeBtn = document.getElementById('closeUpdateSheetBtn');
   const dismissBtn = document.getElementById('dismissUpdateBtn');
   const backdrop = document.getElementById('updateBackdrop');
+  const downloadBtn = document.getElementById('downloadUpdateOnlineBtn');
 
   const closeHandler = () => {
     state.closeUpdateModal();
@@ -94,6 +108,13 @@ export function bindUpdateModalEvents() {
   if (backdrop) {
     backdrop.onclick = (e) => {
       if (e.target === backdrop) closeHandler();
+    };
+  }
+
+  if (downloadBtn) {
+    downloadBtn.onclick = (e) => {
+      e.preventDefault();
+      state.triggerUpdateDownload();
     };
   }
 }
