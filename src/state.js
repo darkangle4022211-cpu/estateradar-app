@@ -1,218 +1,24 @@
 // EstateRadar State Management Engine
+// Clean Architecture — Zero Dummy Data — Tenant Isolated Storage
 import { supabase } from './services/supabase.js';
-
-// Initial Sample Property Data with rich real estate photos and verification data
-const INITIAL_PROPERTIES = [
-  {
-    id: 'prop_101',
-    surveyorId: 'emp_01',
-    surveyorName: 'Surveyor 01',
-    address: 'Plot 42-B, Block H, Gulberg III, Lahore',
-    type: 'Luxury House',
-    area: '1 Kanal (4,500 Sq Ft)',
-    demand: 'PKR 6.8 Crore ($245,000)',
-    status: 'Hot Deal',
-    ownerName: 'Malik Tariq Mehmood',
-    ownerPhone: '+92 300 8472910',
-    condition: 'Brand new designer villa, Spanish tiles, imported fittings, solar backup.',
-    coordinates: { lat: 31.5152, lng: 74.3489 },
-    accuracyMeters: 4.2,
-    distanceVerified: true,
-    distanceFromPropertyMeters: 7.5,
-    timestamp: '2026-10-12 14:22:18',
-    stayDurationMinutes: 34,
-    imageUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
-    watermark: {
-      text: 'ESTATERADAR VERIFIED | 2026-10-12 14:22:18 | 31.5152° N, 74.3489° E | Surveyor: Unit 01',
-      hash: 'SHA256:7f8a9e01cd34b2'
-    }
-  },
-  {
-    id: 'prop_102',
-    surveyorId: 'emp_01',
-    surveyorName: 'Surveyor 01',
-    address: 'Corner Villa 18, Sector J, DHA Phase 5, Lahore',
-    type: 'Modern House',
-    area: '10 Marla (2,250 Sq Ft)',
-    demand: 'PKR 3.9 Crore ($140,000)',
-    status: 'Direct Owner',
-    ownerName: 'Dr. Asad Qureshi',
-    ownerPhone: '+92 321 4455889',
-    condition: 'Owner moving abroad, motivated seller, solid structure, basement included.',
-    coordinates: { lat: 31.4728, lng: 74.4021 },
-    accuracyMeters: 3.8,
-    distanceVerified: true,
-    distanceFromPropertyMeters: 5.1,
-    timestamp: '2026-10-12 11:45:04',
-    stayDurationMinutes: 28,
-    imageUrl: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80',
-    watermark: {
-      text: 'ESTATERADAR VERIFIED | 2026-10-12 11:45:04 | 31.4728° N, 74.4021° E | Surveyor: Unit 01',
-      hash: 'SHA256:4a3b2c1d9e8f7a'
-    }
-  },
-  {
-    id: 'prop_103',
-    surveyorId: 'emp_02',
-    surveyorName: 'Bilal Ahmed',
-    address: 'Commercial Plot 77, Main Boulevard, Johar Town',
-    type: 'Commercial Plot',
-    area: '8 Marla Commercial',
-    demand: 'PKR 5.2 Crore ($188,000)',
-    status: 'Urgent Sale',
-    ownerName: 'Chaudhry Riaz',
-    ownerPhone: '+92 333 9123456',
-    condition: 'Direct road frontage, approved commercial map, prime investment node.',
-    coordinates: { lat: 31.4682, lng: 74.2984 },
-    accuracyMeters: 5.0,
-    distanceVerified: true,
-    distanceFromPropertyMeters: 9.3,
-    timestamp: '2026-10-12 13:10:45',
-    stayDurationMinutes: 19,
-    imageUrl: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80',
-    watermark: {
-      text: 'ESTATERADAR VERIFIED | 2026-10-12 13:10:45 | 31.4682° N, 74.2984° E | Surveyor: Bilal Ahmed',
-      hash: 'SHA256:88eef103a89bc4'
-    }
-  }
-];
-
-// Team Members for Admin Radar
-const INITIAL_EMPLOYEES = [
-  {
-    id: 'emp_01',
-    name: 'Surveyor Unit 01',
-    role: 'Lead Field Surveyor',
-    phone: '+92 300 1122334',
-    email: 'surveyor01@estate.internal',
-    username: 'surveyor01',
-    password: 'Pass@2026',
-    biometricsRegistered: true,
-    passwordResetRequested: false,
-    avatar: '01',
-    isClockedIn: true,
-    status: 'moving', // moving, surveying, idle, offline
-    speedKmh: 34,
-    headingDeg: 62,
-    batteryPercent: 88,
-    currentCoords: { lat: 31.5110, lng: 74.3540 },
-    currentAddress: 'En Route to Main Market, Gulberg',
-    surveysToday: 2,
-    distanceCoveredKm: 21.6,
-    idleDurationMin: 0,
-    isMocking: false,
-    color: '#10b981' // emerald
-  },
-  {
-    id: 'emp_02',
-    name: 'Bilal Ahmed',
-    role: 'Senior Surveyor',
-    phone: '03001234567',
-    email: 'bilal.ahmed@example.com',
-    username: 'bilal',
-    password: 'Pass@2026',
-    biometricsRegistered: true,
-    passwordResetRequested: false,
-    avatar: 'BA',
-    isClockedIn: true,
-    status: 'idle', // currently idle!
-    speedKmh: 0,
-    headingDeg: 180,
-    batteryPercent: 64,
-    currentCoords: { lat: 31.4820, lng: 74.3645 },
-    currentAddress: 'Parked near Cafe Retro, Model Town',
-    surveysToday: 1,
-    distanceCoveredKm: 14.1,
-    idleDurationMin: 26, // Triggers Idle alert (> 20 mins)
-    isMocking: false,
-    color: '#f59e0b' // amber
-  },
-  {
-    id: 'emp_03',
-    name: 'Usman Tariq',
-    role: 'Area Inspector',
-    phone: '03127654321',
-    email: 'usman.tariq@example.com',
-    username: 'usman',
-    password: 'Pass@2026',
-    biometricsRegistered: true,
-    passwordResetRequested: false,
-    avatar: 'UT',
-    isClockedIn: true,
-    status: 'surveying',
-    speedKmh: 0,
-    headingDeg: 90,
-    batteryPercent: 79,
-    currentCoords: { lat: 31.4725, lng: 74.4018 },
-    currentAddress: 'Surveying at DHA Phase 5, Sector C',
-    surveysToday: 3,
-    distanceCoveredKm: 29.8,
-    idleDurationMin: 12,
-    isMocking: false,
-    color: '#06b6d4' // cyan
-  },
-  {
-    id: 'emp_04',
-    name: 'Zeeshan Khan',
-    role: 'Junior Surveyor',
-    phone: '03459876543',
-    email: 'zeeshan.khan@example.com',
-    username: 'zeeshan',
-    password: 'Pass@2026',
-    biometricsRegistered: true,
-    passwordResetRequested: false,
-    avatar: 'ZK',
-    isClockedIn: false,
-    status: 'offline',
-    speedKmh: 0,
-    headingDeg: 0,
-    batteryPercent: 95,
-    currentCoords: { lat: 31.5204, lng: 74.3587 },
-    currentAddress: 'Shift Not Started (Clocked Out)',
-    surveysToday: 0,
-    distanceCoveredKm: 0.0,
-    idleDurationMin: 0,
-    isMocking: false,
-    color: '#64748b' // slate
-  }
-];
-
-// Initial Alerts
-const INITIAL_ALERTS = [
-  {
-    id: 'alt_01',
-    type: 'idle',
-    severity: 'warning',
-    title: 'Protracted Stop Detected',
-    message: 'Bilal Ahmed has been stationary for 26 mins at Model Town Park (No survey logged).',
-    timestamp: '14:38:00',
-    employeeId: 'emp_02'
-  },
-  {
-    id: 'alt_02',
-    type: 'survey',
-    severity: 'success',
-    title: 'New Verified Survey Logged',
-    message: 'Surveyor Unit 01 logged Plot 42-B, Gulberg III with 4 stamped photos.',
-    timestamp: '14:22:18',
-    employeeId: 'emp_01'
-  }
-];
+import { storage } from './services/storage.js';
 
 class StateManager {
   constructor() {
     this.listeners = new Set();
-    this.activeView = 'dual'; // 'dual' | 'mobile' | 'radar'
-    this.userRole = 'employee'; // 'employee' | 'admin'
-    this.employees = [...INITIAL_EMPLOYEES];
-    this.properties = [...INITIAL_PROPERTIES];
-    this.alerts = [...INITIAL_ALERTS];
+    this.activeView = 'manager';
+    this.userRole = 'manager'; // 'manager' | 'employee'
+    
+    // Strict Zero-Dummy-Data initial states
+    this.employees = [];
+    this.properties = [];
+    this.alerts = [];
     this.offlineQueue = [];
     
-    // Primary User state
-    this.currentUser = { ...this.employees[0] };
-    this.shiftStartTime = Date.now() - (3 * 3600 * 1000 + 18 * 60 * 1000); // 3h 18m ago
-    this.shiftTimerActive = true;
+    // Primary User & Shift state
+    this.currentUser = null;
+    this.shiftStartTime = Date.now();
+    this.shiftTimerActive = false;
 
     // Theme state (dark / light)
     let savedTheme = 'dark';
@@ -228,21 +34,38 @@ class StateManager {
       savedAuth = JSON.parse(localStorage.getItem('estateradar_auth_session'));
     } catch (e) {}
 
-    // Authentication & Biometric state
+    // Authentication state
     this.auth = {
       isAuthenticated: Boolean(savedAuth && savedAuth.user),
       currentUser: savedAuth?.user || null,
       isForgotPasswordModalOpen: false,
-      isAddEmployeeModalOpen: false,
-      biometricPromptActive: false
+      isAddEmployeeModalOpen: false
     };
 
-    this.userRole = savedAuth?.role || 'manager'; // 'manager' | 'employee'
-    this.activeView = this.userRole === 'manager' ? 'manager' : 'mobile';
+    if (savedAuth && savedAuth.user) {
+      this.currentUser = savedAuth.user;
+      this.userRole = savedAuth.role || 'manager';
+      this.activeView = this.userRole === 'manager' ? 'manager' : 'mobile';
+    }
 
-    // Multi-Tenant SaaS Company State (Strict Isolation)
-    this.company = supabase.getActiveCompany();
-    this.loadCompanyData();
+    // Active Tenant Company
+    this.company = null;
+    if (savedAuth?.user?.companyCode) {
+      this.company = storage.findCompanyByCode(savedAuth.user.companyCode) || {
+        company_code: savedAuth.user.companyCode,
+        name: savedAuth.user.companyName || 'My Agency'
+      };
+    } else {
+      let savedComp = null;
+      try {
+        savedComp = JSON.parse(localStorage.getItem('estateradar_active_company'));
+      } catch (e) {}
+      this.company = savedComp || null;
+    }
+
+    if (this.company) {
+      this.loadCompanyData();
+    }
     
     // In-App Online Update State
     this.updateState = {
@@ -261,13 +84,13 @@ class StateManager {
       isComplete: false
     };
 
-    // Anti-Cheat & Sensor Health State
+    // Security & Sensor Health State
     this.securityState = {
       mockDetected: false,
       accelerometerSynced: true,
       airplaneMode: false,
       rooted: false,
-      gpsAccuracyRadius: 4.2 // meters
+      gpsAccuracyRadius: 4.2
     };
 
     // Playback Engine State
@@ -275,7 +98,7 @@ class StateManager {
       isPlaying: false,
       progressIndex: 0,
       speedMultiplier: 1,
-      selectedEmployeeId: 'emp_01'
+      selectedEmployeeId: null
     };
   }
 
@@ -317,130 +140,381 @@ class StateManager {
 
   setCompany(company) {
     this.company = company;
+    try {
+      localStorage.setItem('estateradar_active_company', JSON.stringify(company));
+    } catch (e) {}
+    storage.saveCompany(company);
     supabase.setActiveCompany(company);
     this.loadCompanyData();
     this.notify();
   }
 
-  async loadCompanyData() {
-    if (!this.company || !this.company.id) return;
-    try {
-      const cloudEmployees = await supabase.fetchEmployees(this.company.id);
-      if (cloudEmployees && cloudEmployees.length > 0) {
-        this.employees = cloudEmployees.map(ce => ({
-          id: ce.id,
-          name: ce.name,
-          role: ce.role || 'Field Surveyor',
-          phone: ce.phone || '',
-          email: `${ce.username}@estate.internal`,
-          username: ce.username,
-          password: ce.password,
-          avatar: ce.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'EM',
-          isClockedIn: ce.is_clocked_in || false,
-          status: ce.status || 'offline',
-          speedKmh: 0,
-          headingDeg: 0,
-          batteryPercent: ce.battery_percent || 100,
-          currentCoords: { lat: ce.latitude || 31.5204, lng: ce.longitude || 74.3587 },
-          currentAddress: 'Assigned Territory',
-          surveysToday: 0,
-          distanceCoveredKm: 0.0,
-          idleDurationMin: 0,
-          isMocking: false,
-          color: '#10b981',
-          biometricsRegistered: true,
-          passwordResetRequested: false
-        }));
-        if (!this.employees.some(e => e.id === this.currentUser.id)) {
-          this.currentUser = { ...this.employees[0] };
-        }
-      }
+  loadCompanyData() {
+    if (!this.company || !this.company.company_code) return;
+    const code = this.company.company_code.toUpperCase();
+    
+    // Load real employees strictly for this agency (NO dummy data)
+    this.employees = storage.getEmployeesForCompany(code);
+    
+    // Load real property surveys strictly for this agency (NO dummy data)
+    this.properties = storage.getPropertiesForCompany(code);
 
-      const cloudProps = await supabase.fetchProperties(this.company.id);
-      if (cloudProps && cloudProps.length > 0) {
-        this.properties = cloudProps.map(cp => ({
-          id: cp.id,
-          surveyorId: cp.surveyor_id,
-          surveyorName: cp.surveyor_name || 'Field Surveyor',
-          address: cp.address,
-          type: cp.property_type || 'House / Villa',
-          area: cp.area || '',
-          demand: cp.demand || '',
-          status: cp.deal_status || 'Hot Deal',
-          ownerName: cp.owner_name || '',
-          ownerPhone: cp.owner_phone || '',
-          condition: cp.condition_notes || '',
-          coordinates: { lat: cp.latitude || 31.5204, lng: cp.longitude || 74.3587 },
-          accuracyMeters: 4.2,
-          distanceVerified: true,
-          distanceFromPropertyMeters: 5.0,
-          timestamp: cp.timestamp || cp.created_at,
-          stayDurationMinutes: 20,
-          imageUrl: cp.image_url || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
-          watermark: {
-            text: `ESTATERADAR VERIFIED | ${cp.address} | Surveyor: ${cp.surveyor_name || 'Staff'}`,
-            hash: 'SHA256:verified'
-          }
-        }));
-      }
-      this.notify();
-    } catch (err) {
-      console.warn('Error loading cloud company data:', err);
+    // Sync with cloud if configured
+    if (supabase.isConfigured() && this.company.id) {
+      supabase.fetchEmployees(this.company.id).then(cloudEmps => {
+        if (cloudEmps && cloudEmps.length > 0) {
+          cloudEmps.forEach(ce => {
+            if (!this.employees.some(e => e.id === ce.id)) {
+              this.employees.push(ce);
+              storage.saveEmployee(ce);
+            }
+          });
+          this.notify();
+        }
+      }).catch(() => {});
+
+      supabase.fetchProperties(this.company.id).then(cloudProps => {
+        if (cloudProps && cloudProps.length > 0) {
+          cloudProps.forEach(cp => {
+            if (!this.properties.some(p => p.id === cp.id)) {
+              this.properties.unshift(cp);
+              storage.saveProperty(cp);
+            }
+          });
+          this.notify();
+        }
+      }).catch(() => {});
     }
+
+    this.notify();
   }
 
-  async loginWithCredentials(username, password, companyCode = null) {
-    // If companyCode provided, attempt cloud multi-tenant employee authentication
-    if (companyCode) {
-      const cloudRes = await supabase.loginEmployee(companyCode, username, password);
-      if (cloudRes.success) {
-        this.setCompany(cloudRes.company);
-        const emp = cloudRes.employee;
-        const mappedUser = {
-          id: emp.id,
-          name: emp.name,
-          role: emp.role || 'Field Surveyor',
-          username: emp.username,
-          password: emp.password,
-          phone: emp.phone || '',
-          isClockedIn: emp.is_clocked_in || false,
-          status: emp.status || 'offline',
-          currentCoords: { lat: emp.latitude || 31.5204, lng: emp.longitude || 74.3587 },
-          batteryPercent: emp.battery_percent || 100,
-          surveysToday: 0
+  // --- Manager Authentication & Registration ---
+  async loginAsManager(companyCode, email, password) {
+    if (!companyCode || !email || !password) {
+      return { success: false, error: 'All fields are required.' };
+    }
+    const formattedCode = companyCode.trim().toUpperCase();
+    const formattedEmail = email.trim().toLowerCase();
+
+    // 1. Check local storage
+    const localComp = storage.findCompanyByCode(formattedCode);
+    if (localComp) {
+      if (localComp.admin_email?.toLowerCase() !== formattedEmail) {
+        return { success: false, error: 'Manager email does not match this agency.' };
+      }
+      if (localComp.admin_password !== password) {
+        return { success: false, error: 'Incorrect manager password.' };
+      }
+
+      this.setCompany(localComp);
+      const mgrUser = {
+        id: localComp.id || 'mgr_' + Date.now(),
+        name: localComp.admin_name || 'Agency Manager',
+        email: formattedEmail,
+        role: 'manager',
+        companyId: localComp.id,
+        companyCode: formattedCode,
+        companyName: localComp.name
+      };
+      this.auth.isAuthenticated = true;
+      this.auth.currentUser = mgrUser;
+      this.currentUser = mgrUser;
+      this.userRole = 'manager';
+      this.activeView = 'manager';
+      this.saveAuthSession(mgrUser, 'manager');
+      this.notify();
+      return { success: true, company: localComp };
+    }
+
+    // 2. Check cloud
+    if (supabase.isConfigured()) {
+      const res = await supabase.loginCompanyManager(formattedCode, formattedEmail, password);
+      if (res.success) {
+        const company = res.company;
+        this.setCompany(company);
+        const mgrUser = {
+          id: company.id,
+          name: company.admin_name || 'Agency Manager',
+          email: formattedEmail,
+          role: 'manager',
+          companyId: company.id,
+          companyCode: formattedCode,
+          companyName: company.name
         };
         this.auth.isAuthenticated = true;
-        this.auth.currentUser = mappedUser;
-        this.currentUser = mappedUser;
-        this.userRole = 'employee';
-        this.activeView = 'mobile';
-        this.saveAuthSession(mappedUser, 'employee');
+        this.auth.currentUser = mgrUser;
+        this.currentUser = mgrUser;
+        this.userRole = 'manager';
+        this.activeView = 'manager';
+        this.saveAuthSession(mgrUser, 'manager');
         this.notify();
-        return { success: true, user: mappedUser };
+        return { success: true, company };
       }
-      return { success: false, error: cloudRes.message };
+      return { success: false, error: res.message || 'Invalid manager credentials.' };
     }
 
-    // Local fallback check
-    const user = this.employees.find(e => e.username.toLowerCase() === username.trim().toLowerCase());
-    if (!user) {
-      return { success: false, error: 'Employee username not found.' };
-    }
-    if (user.password !== password) {
-      return { success: false, error: 'Incorrect password. Check with Admin.' };
-    }
-    this.auth.isAuthenticated = true;
-    this.auth.currentUser = { ...user };
-    this.currentUser = { ...user };
-    this.userRole = 'employee';
-    this.activeView = 'mobile';
-    this.saveAuthSession(user, 'employee');
-    this.notify();
-    return { success: true, user };
+    return { success: false, error: `Agency Code "${formattedCode}" not found. Please register first.` };
   }
 
-  async loginAsSurveyor(companyCode, username, password) {
-    return await this.loginWithCredentials(username, password, companyCode);
+  async registerNewCompany(name, companyCode, email, password, managerName = 'Agency Manager') {
+    if (!name || !companyCode || !email || !password) {
+      return { success: false, error: 'Please fill in all registration fields.' };
+    }
+    const formattedCode = companyCode.trim().toUpperCase();
+    const formattedEmail = email.trim().toLowerCase();
+
+    // Check if company code already exists
+    const existing = storage.findCompanyByCode(formattedCode);
+    if (existing) {
+      return { success: false, error: `Agency Code "${formattedCode}" is already taken. Please choose another.` };
+    }
+
+    const companyId = 'comp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+    const newCompany = {
+      id: companyId,
+      name: name.trim(),
+      company_code: formattedCode,
+      admin_name: managerName.trim(),
+      admin_email: formattedEmail,
+      admin_password: password
+    };
+
+    // Save to local storage
+    storage.saveCompany(newCompany);
+
+    // Save to cloud if configured
+    if (supabase.isConfigured()) {
+      supabase.registerCompany(name, formattedCode, formattedEmail, password).catch(() => {});
+    }
+
+    this.setCompany(newCompany);
+
+    // ZERO DUMMY DATA — completely clean initial team and property lists
+    this.employees = [];
+    this.properties = [];
+    this.alerts = [];
+
+    const mgrUser = {
+      id: 'mgr_' + Date.now(),
+      name: managerName.trim(),
+      email: formattedEmail,
+      role: 'manager',
+      companyId: companyId,
+      companyCode: formattedCode,
+      companyName: newCompany.name
+    };
+
+    this.auth.isAuthenticated = true;
+    this.auth.currentUser = mgrUser;
+    this.currentUser = mgrUser;
+    this.userRole = 'manager';
+    this.activeView = 'manager';
+    this.saveAuthSession(mgrUser, 'manager');
+    this.notify();
+    return { success: true, company: newCompany };
+  }
+
+  // --- Employee Authentication & Registration ---
+  async loginAsSurveyor(companyCode, usernameOrEmail, password) {
+    if (!companyCode || !usernameOrEmail || !password) {
+      return { success: false, error: 'Please enter Agency Code, Username/Email, and Password.' };
+    }
+    const formattedCode = companyCode.trim().toUpperCase();
+    const target = usernameOrEmail.trim().toLowerCase();
+
+    // 1. Verify agency exists
+    const company = storage.findCompanyByCode(formattedCode);
+    if (!company) {
+      return { success: false, error: `Agency Code "${formattedCode}" does not exist. Check with your manager.` };
+    }
+
+    // 2. Verify employee record
+    const employees = storage.getEmployeesForCompany(formattedCode);
+    const employee = employees.find(e => 
+      (e.username && e.username.toLowerCase() === target) || 
+      (e.email && e.email.toLowerCase() === target)
+    );
+
+    if (!employee) {
+      return { success: false, error: `Staff account "${usernameOrEmail}" is not registered in Agency ${formattedCode}. Please submit a request to join.` };
+    }
+
+    // STRICT PASSWORD CHECK — NO BYPASS ALLOWED
+    if (employee.password !== password) {
+      return { success: false, error: 'Incorrect password. Check with your manager.' };
+    }
+
+    // CHECK IF STATUS IS PENDING
+    if (employee.status === 'pending') {
+      return { 
+        success: false, 
+        error: 'Your request is pending manager approval. Please ask your Agency Manager to accept your request in their console.' 
+      };
+    }
+
+    this.setCompany(company);
+    this.auth.isAuthenticated = true;
+    this.auth.currentUser = employee;
+    this.currentUser = employee;
+    this.userRole = 'employee';
+    this.activeView = 'mobile';
+    this.saveAuthSession(employee, 'employee');
+    this.notify();
+    return { success: true, user: employee };
+  }
+
+  // Employee requests to join agency
+  requestJoinAgency(companyCode, { name, username, email, password, phone }) {
+    if (!companyCode || !name || !username || !password) {
+      return { success: false, error: 'Name, Username, Password, and Agency Code are required.' };
+    }
+    const formattedCode = companyCode.trim().toUpperCase();
+    const formattedUser = username.trim().toLowerCase();
+
+    // Check if company exists
+    let comp = storage.findCompanyByCode(formattedCode);
+    if (!comp) {
+      return { success: false, error: `Agency Code "${formattedCode}" does not exist. Please ask your manager for the valid code.` };
+    }
+
+    // Check if username already exists in this agency
+    const existing = storage.getEmployeesForCompany(formattedCode);
+    if (existing.some(e => e.username?.toLowerCase() === formattedUser)) {
+      return { success: false, error: `Username "${username}" is already taken in this agency.` };
+    }
+
+    const newEmp = {
+      id: 'emp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 5),
+      company_code: formattedCode,
+      name: name.trim(),
+      username: formattedUser,
+      email: (email || `${formattedUser}@agency.internal`).trim().toLowerCase(),
+      password: password,
+      phone: phone || '',
+      role: 'Field Surveyor',
+      status: 'pending', // Requires manager approval
+      isClockedIn: false,
+      currentCoords: null,
+      currentAddress: 'Shift Inactive',
+      batteryPercent: 100,
+      surveysToday: 0,
+      createdAt: new Date().toISOString()
+    };
+
+    storage.saveEmployee(newEmp);
+
+    // If manager of this company is currently viewing, notify them live
+    if (this.company && this.company.company_code.toUpperCase() === formattedCode) {
+      this.employees.push(newEmp);
+      this.addAlert({
+        type: 'team',
+        severity: 'info',
+        title: 'New Staff Join Request',
+        message: `${newEmp.name} requested to join Agency ${formattedCode}.`,
+        timestamp: new Date().toLocaleTimeString()
+      });
+      this.notify();
+    }
+
+    return { 
+      success: true, 
+      message: 'Request submitted successfully! Please wait for your Agency Manager to accept your request.' 
+    };
+  }
+
+  // Manager accepts pending employee
+  approveEmployee(employeeId) {
+    const updated = storage.acceptEmployeeRequest(employeeId);
+    if (updated) {
+      const idx = this.employees.findIndex(e => e.id === employeeId);
+      if (idx >= 0) {
+        this.employees[idx] = updated;
+      }
+      this.addAlert({
+        type: 'team',
+        severity: 'success',
+        title: 'Employee Approved',
+        message: `${updated.name} has been approved and is now active.`,
+        timestamp: new Date().toLocaleTimeString()
+      });
+      this.notify();
+      return true;
+    }
+    return false;
+  }
+
+  // Manager declines pending employee
+  rejectEmployee(employeeId) {
+    storage.rejectEmployeeRequest(employeeId);
+    this.employees = this.employees.filter(e => e.id !== employeeId);
+    this.notify();
+    return true;
+  }
+
+  // Manager creates employee manually
+  createEmployee({ name, username, email, password, role, phone }) {
+    if (!this.company) return { success: false, error: 'No active agency.' };
+    if (!name || !username || !password) {
+      return { success: false, error: 'Name, Username, and Password are required.' };
+    }
+
+    const formattedCode = this.company.company_code.toUpperCase();
+    const formattedUser = username.trim().toLowerCase();
+
+    // Check username uniqueness
+    if (this.employees.some(e => e.username?.toLowerCase() === formattedUser)) {
+      return { success: false, error: `Username "${username}" is already taken.` };
+    }
+
+    const newEmp = {
+      id: 'emp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 5),
+      company_code: formattedCode,
+      name: name.trim(),
+      username: formattedUser,
+      email: (email || `${formattedUser}@agency.internal`).trim().toLowerCase(),
+      password: password,
+      phone: phone || '',
+      role: role || 'Field Surveyor',
+      status: 'active', // Direct addition by manager is active immediately
+      isClockedIn: false,
+      currentCoords: null,
+      currentAddress: 'Shift Not Started',
+      batteryPercent: 100,
+      surveysToday: 0,
+      createdAt: new Date().toISOString()
+    };
+
+    storage.saveEmployee(newEmp);
+    this.employees.push(newEmp);
+
+    if (supabase.isConfigured() && this.company.id) {
+      supabase.createEmployee(newEmp, this.company.id).catch(() => {});
+    }
+
+    this.addAlert({
+      type: 'team',
+      severity: 'success',
+      title: 'Employee Added',
+      message: `${newEmp.name} added to agency roster.`,
+      timestamp: new Date().toLocaleTimeString()
+    });
+    this.notify();
+    return { success: true, employee: newEmp };
+  }
+
+  logout() {
+    this.auth.isAuthenticated = false;
+    this.auth.currentUser = null;
+    this.currentUser = null;
+    this.userRole = null;
+    try {
+      localStorage.removeItem('estateradar_auth_session');
+    } catch (e) {}
+    this.notify();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('re-render-request'));
+    }
   }
 
   saveAuthSession(user, role) {
@@ -449,262 +523,43 @@ class StateManager {
     } catch (e) {}
   }
 
-  async loginAsManager(companyCode, email, password) {
-    let res = await supabase.loginCompanyManager(companyCode, email, password);
-    if (!res.success) {
-      const activeComp = supabase.getActiveCompany();
-      if (activeComp && activeComp.company_code === companyCode.trim().toUpperCase()) {
-        res = { success: true, company: activeComp };
-      } else {
-        return { success: false, error: res.message || 'Invalid agency manager credentials.' };
-      }
-    }
-    const company = res.company;
-    this.setCompany(company);
-    const mgrUser = {
-      id: 'mgr_' + Date.now(),
-      name: company.admin_name || 'Agency Manager',
-      email: email,
-      role: 'manager',
-      companyId: company.id,
-      companyCode: company.company_code
-    };
-    this.auth.isAuthenticated = true;
-    this.auth.currentUser = mgrUser;
-    this.userRole = 'manager';
-    this.activeView = 'manager';
-    this.saveAuthSession(mgrUser, 'manager');
-    this.notify();
-    return { success: true, company };
-  }
-
-  async registerNewCompany(name, companyCode, email, password, managerName = 'Agency Manager') {
-    let res = await supabase.registerCompany(name, companyCode, email, password);
-    if (!res.success) {
-      console.warn('Supabase cloud register fallback to local agency workspace:', res.message);
-      const companyId = 'comp_' + Date.now();
-      const fallbackCompany = {
-        id: companyId,
-        name: name.trim(),
-        company_code: companyCode.trim().toUpperCase(),
-        admin_email: email.trim().toLowerCase(),
-        admin_name: managerName
-      };
-      supabase.setActiveCompany(fallbackCompany);
-      res = { success: true, company: fallbackCompany };
-    }
-    const company = res.company;
-    this.setCompany(company);
-
-    // Initial starter team on Lahore radar so the manager has live data immediately
-    this.employees = [
-      {
-        id: 'emp_01',
-        company_id: company.id,
-        name: 'Ali Raza',
-        username: 'aliraza',
-        phone: '+92 300 1234567',
-        avatar: 'AR',
-        color: '#10b981',
-        status: 'moving',
-        speedKmh: 24,
-        batteryPercent: 88,
-        isClockedIn: true,
-        currentAddress: 'Sector J, DHA Phase 5',
-        coordinates: { lat: 31.4728, lng: 74.4021 },
-        surveysToday: 2
-      },
-      {
-        id: 'emp_02',
-        company_id: company.id,
-        name: 'Bilal Ahmed',
-        username: 'bilal',
-        phone: '+92 321 7654321',
-        avatar: 'BA',
-        color: '#3b82f6',
-        status: 'moving',
-        speedKmh: 18,
-        batteryPercent: 92,
-        isClockedIn: true,
-        currentAddress: 'Main Boulevard, Johar Town',
-        coordinates: { lat: 31.4682, lng: 74.2985 },
-        surveysToday: 1
-      }
-    ];
-    this.properties = [...INITIAL_PROPERTIES];
-
-    const mgrUser = {
-      id: 'mgr_' + Date.now(),
-      name: managerName,
-      email: email,
-      role: 'manager',
-      companyId: company.id,
-      companyCode: company.company_code
-    };
-    this.auth.isAuthenticated = true;
-    this.auth.currentUser = mgrUser;
-    this.userRole = 'manager';
-    this.activeView = 'manager';
-    this.saveAuthSession(mgrUser, 'manager');
-    this.notify();
-    return { success: true, company };
-  }
-
-  loginWithBiometrics() {
-    const user = this.currentUser || this.employees[0];
-    this.auth.isAuthenticated = true;
-    this.auth.currentUser = { ...user };
-    this.currentUser = { ...user };
-    this.userRole = 'employee';
-    this.activeView = 'mobile';
-    this.saveAuthSession(user, 'employee');
-    this.addAlert({
-      type: 'security',
-      severity: 'info',
-      title: 'Biometric Login Verified',
-      message: `${user.name} authenticated via hardware fingerprint scanner.`,
-      timestamp: new Date().toLocaleTimeString(),
-      employeeId: user.id
-    });
-    this.notify();
-    return { success: true, user };
-  }
-
-  logout() {
-    this.auth.isAuthenticated = false;
-    this.auth.currentUser = null;
-    try {
-      localStorage.removeItem('estateradar_auth_session');
-    } catch (e) {}
-    this.notify();
-  }
-
-  openForgotPasswordModal(open = true) {
-    this.auth.isForgotPasswordModalOpen = open;
-    this.notify();
-  }
-
-  openAddEmployeeModal(open = true) {
-    this.auth.isAddEmployeeModalOpen = open;
-    this.notify();
-  }
-
-  requestPasswordReset(usernameOrPhone) {
-    const user = this.employees.find(e => 
-      e.username.toLowerCase() === usernameOrPhone.trim().toLowerCase() ||
-      e.phone.includes(usernameOrPhone.trim())
-    );
-
-    if (user) {
-      user.passwordResetRequested = true;
-      this.addAlert({
-        type: 'security',
-        severity: 'warning',
-        title: '🔑 Password Reset Request',
-        message: `${user.name} (${user.role}) submitted password reset request. Click to generate temporary credentials.`,
-        timestamp: new Date().toLocaleTimeString(),
-        employeeId: user.id
-      });
-      this.notify();
-      return { success: true, user };
-    }
-    return { success: false, error: 'No employee record found for that username or phone.' };
-  }
-
-  adminResetPassword(employeeId, newPassword = null) {
-    const emp = this.employees.find(e => e.id === employeeId);
-    if (!emp) return null;
-
-    const generatedPass = newPassword || `Radar@${Math.floor(1000 + Math.random() * 9000)}`;
-    emp.password = generatedPass;
-    emp.passwordResetRequested = false;
-
-    this.addAlert({
-      type: 'security',
-      severity: 'success',
-      title: 'New Password Generated',
-      message: `Admin reset credentials for ${emp.name}. Temporary password: ${generatedPass}`,
-      timestamp: new Date().toLocaleTimeString(),
-      employeeId: emp.id
-    });
-    this.notify();
-    return generatedPass;
-  }
-
-  addNewEmployee(employeeData) {
-    const newId = 'emp_' + (this.employees.length + 1).toString().padStart(2, '0');
-    const avatarInitials = employeeData.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'EM';
-    
-    const newEmp = {
-      id: newId,
-      name: employeeData.name,
-      role: employeeData.role || 'Field Surveyor',
-      phone: employeeData.phone || '+92 300 0000000',
-      email: employeeData.email || `${employeeData.username || newId}@estate.internal`,
-      username: employeeData.username || `surveyor_${newId}`,
-      password: employeeData.password || 'Pass@2026',
-      avatar: avatarInitials,
-      isClockedIn: false,
-      status: 'offline',
-      speedKmh: 0,
-      headingDeg: 0,
-      batteryPercent: 100,
-      currentCoords: { lat: 31.5204 + (Math.random() - 0.5) * 0.04, lng: 74.3587 + (Math.random() - 0.5) * 0.04 },
-      currentAddress: employeeData.territory || 'Assigned Territory',
-      surveysToday: 0,
-      distanceCoveredKm: 0.0,
-      idleDurationMin: 0,
-      isMocking: false,
-      color: '#3b82f6',
-      biometricsRegistered: true,
-      passwordResetRequested: false
-    };
-
-    this.employees.push(newEmp);
-    if (this.company?.id) {
-      supabase.createEmployee(newEmp, this.company.id);
-    }
-    this.addAlert({
-      type: 'system',
-      severity: 'success',
-      title: 'New Employee Added',
-      message: `Admin created profile for ${newEmp.name} (${newEmp.role}). Username: ${newEmp.username}`,
-      timestamp: new Date().toLocaleTimeString(),
-      employeeId: newEmp.id
-    });
-    this.notify();
-    return newEmp;
-  }
-
+  // --- Clock In / Clock Out ---
   toggleShift() {
+    if (!this.currentUser) return;
     this.currentUser.isClockedIn = !this.currentUser.isClockedIn;
     if (this.currentUser.isClockedIn) {
       this.shiftStartTime = Date.now();
       this.currentUser.status = 'moving';
-      this.currentUser.currentAddress = 'Active Shift — GPS Streaming 24/7';
-      this.addAlert({
-        type: 'shift',
-        severity: 'info',
-        title: 'Shift Started',
-        message: `${this.currentUser.name} clocked in. Live GPS streaming activated.`,
-        timestamp: new Date().toLocaleTimeString(),
-        employeeId: this.currentUser.id
-      });
+      this.currentUser.currentAddress = 'Active Shift — GPS Tracking Active';
+      
+      // Request real geolocation on clock-in
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            this.updateCurrentGps({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              speed: pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0,
+              accuracy: pos.coords.accuracy
+            });
+          },
+          err => console.warn('Geolocation error:', err),
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      }
     } else {
       this.currentUser.status = 'offline';
       this.currentUser.speedKmh = 0;
-      this.currentUser.currentAddress = 'Shift Inactive (Tracking Completely Off)';
-      this.addAlert({
-        type: 'shift',
-        severity: 'warning',
-        title: 'Shift Ended',
-        message: `${this.currentUser.name} clocked out. Location tracking terminated.`,
-        timestamp: new Date().toLocaleTimeString(),
-        employeeId: this.currentUser.id
-      });
+      this.currentUser.currentAddress = 'Off Duty (Tracking Paused)';
     }
-    
-    // Sync to main list
+
+    // Sync to storage
+    storage.updateEmployee(this.currentUser.id, {
+      isClockedIn: this.currentUser.isClockedIn,
+      status: this.currentUser.status,
+      currentAddress: this.currentUser.currentAddress
+    });
+
     const idx = this.employees.findIndex(e => e.id === this.currentUser.id);
     if (idx !== -1) {
       this.employees[idx] = { ...this.currentUser };
@@ -712,53 +567,73 @@ class StateManager {
     this.notify();
   }
 
-  updateEmployeePosition(id, coords, speed, heading, address, status = null) {
-    const idx = this.employees.findIndex(e => e.id === id);
-    if (idx !== -1) {
-      this.employees[idx].currentCoords = coords;
-      this.employees[idx].speedKmh = speed;
-      this.employees[idx].headingDeg = heading;
-      if (address) this.employees[idx].currentAddress = address;
-      if (status) this.employees[idx].status = status;
+  updateCurrentGps(coords) {
+    if (!this.currentUser) return;
+    this.currentUser.currentCoords = { lat: coords.lat, lng: coords.lng };
+    this.currentUser.speedKmh = coords.speed || 0;
+    this.currentUser.accuracyMeters = coords.accuracy || 5;
 
-      if (id === this.currentUser.id) {
-        this.currentUser = { ...this.employees[idx] };
-        // Stream telemetry to Supabase if shift is active
-        if (this.currentUser.isClockedIn && this.company?.id) {
-          supabase.recordGpsPing({
-            employeeId: id,
-            lat: coords.lat,
-            lng: coords.lng,
-            speed: speed,
-            battery: this.employees[idx].batteryPercent,
-            address: address,
-            status: status || this.employees[idx].status
-          }, this.company.id);
-        }
-      }
-      this.notify();
+    storage.updateEmployee(this.currentUser.id, {
+      currentCoords: this.currentUser.currentCoords,
+      speedKmh: this.currentUser.speedKmh,
+      accuracyMeters: this.currentUser.accuracyMeters
+    });
+
+    const idx = this.employees.findIndex(e => e.id === this.currentUser.id);
+    if (idx !== -1) {
+      this.employees[idx] = { ...this.currentUser };
     }
+    this.notify();
   }
 
-  addProperty(property) {
-    this.properties.unshift(property);
-    if (this.company?.id) {
-      supabase.savePropertySurvey(property, this.company.id);
+  // --- Property Survey Submission ---
+  submitPropertySurvey(propertyData) {
+    const newProp = {
+      id: 'prop_' + Date.now() + '_' + Math.random().toString(36).substring(2, 5),
+      company_code: this.company ? this.company.company_code.toUpperCase() : 'AGENCY',
+      surveyorId: this.currentUser ? this.currentUser.id : 'unknown',
+      surveyorName: this.currentUser ? this.currentUser.name : 'Field Staff',
+      address: propertyData.address || 'Field Survey Site',
+      type: propertyData.type || 'House',
+      area: propertyData.area || '',
+      demand: propertyData.demand || '',
+      status: propertyData.status || 'Verified',
+      ownerName: propertyData.ownerName || '',
+      ownerPhone: propertyData.ownerPhone || '',
+      condition: propertyData.condition || '',
+      coordinates: propertyData.coordinates || (this.currentUser?.currentCoords) || { lat: 31.5204, lng: 74.3587 },
+      accuracyMeters: propertyData.accuracyMeters || 4.0,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      imageUrl: propertyData.imageUrl || '',
+      watermark: {
+        text: `ESTATERADAR VERIFIED | ${propertyData.address} | ${new Date().toLocaleTimeString()}`,
+        hash: 'SHA256:' + Math.random().toString(36).substring(2, 10)
+      }
+    };
+
+    storage.saveProperty(newProp);
+    this.properties.unshift(newProp);
+
+    if (this.currentUser) {
+      this.currentUser.surveysToday = (this.currentUser.surveysToday || 0) + 1;
+      storage.updateEmployee(this.currentUser.id, { surveysToday: this.currentUser.surveysToday });
     }
-    this.currentUser.surveysToday += 1;
-    const empIdx = this.employees.findIndex(e => e.id === this.currentUser.id);
-    if (empIdx !== -1) {
-      this.employees[empIdx].surveysToday += 1;
+
+    if (supabase.isConfigured() && this.company?.id) {
+      supabase.savePropertySurvey(newProp, this.company.id).catch(() => {});
     }
+
     this.addAlert({
       type: 'survey',
       severity: 'success',
       title: 'New Property Survey Logged',
-      message: `${property.surveyorName} verified ${property.type} at ${property.address}.`,
+      message: `${newProp.surveyorName} logged survey at ${newProp.address}`,
       timestamp: new Date().toLocaleTimeString(),
-      employeeId: property.surveyorId
+      employeeId: newProp.surveyorId
     });
+
     this.notify();
+    return newProp;
   }
 
   addAlert(alert) {
@@ -768,99 +643,24 @@ class StateManager {
       ...alert
     };
     this.alerts.unshift(newAlert);
-    if (this.alerts.length > 20) this.alerts.pop();
+    if (this.alerts.length > 30) this.alerts.pop();
     this.notify();
   }
 
-  triggerSimulatedUpdate(available = true) {
-    this.updateState.isAvailable = available;
-    this.updateState.isModalOpen = false;
-    this.updateState.progressPercent = 0;
-    this.updateState.isDownloading = false;
-    this.updateState.isComplete = false;
-    this.notify();
-  }
-
+  // --- Instant Reactive Update Modal ---
   openUpdateModal() {
     this.updateState.isModalOpen = true;
-    this.notify();
-    // User requirement: "The window opens, and the update installs at the maximum speed possible"
-    if (!this.updateState.isComplete && !this.updateState.isDownloading) {
-      this.startDownloadUpdate();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('update-modal-changed'));
     }
+    this.notify();
   }
 
   closeUpdateModal() {
     this.updateState.isModalOpen = false;
-    this.notify();
-  }
-
-  startDownloadUpdate(onComplete = null) {
-    if (this.updateState.isDownloading) return;
-    this.updateState.isDownloading = true;
-    this.updateState.progressPercent = 0;
-    this.updateState.isComplete = false;
-    this.notify();
-
-    // High speed interval (every 75ms)
-    const interval = setInterval(() => {
-      this.updateState.progressPercent += Math.floor(Math.random() * 10) + 16; // 16-25% jump per 75ms
-      if (this.updateState.progressPercent >= 100) {
-        this.updateState.progressPercent = 100;
-        this.updateState.isDownloading = false;
-        this.updateState.isComplete = true;
-        this.updateState.isAvailable = false; // Finished, update applied
-        clearInterval(interval);
-        
-        this.addAlert({
-          type: 'system',
-          severity: 'success',
-          title: 'System Update Complete',
-          message: 'EstateRadar v2.4.1 has been installed. Background services uninterrupted.',
-          timestamp: new Date().toLocaleTimeString(),
-          employeeId: 'system'
-        });
-
-        if (onComplete) onComplete();
-      }
-      this.notify();
-    }, 75);
-  }
-
-  simulateMockAttack() {
-    this.securityState.mockDetected = true;
-    this.currentUser.isMocking = true;
-    this.addAlert({
-      type: 'security',
-      severity: 'critical',
-      title: '🚨 MOCK LOCATION BLOCKED',
-      message: `Security Shield: Fake GPS provider intercepted on ${this.currentUser.name}'s phone. Spoofed teleport blocked!`,
-      timestamp: new Date().toLocaleTimeString(),
-      employeeId: this.currentUser.id
-    });
-    this.notify();
-
-    setTimeout(() => {
-      this.securityState.mockDetected = false;
-      this.currentUser.isMocking = false;
-      this.notify();
-    }, 6000);
-  }
-
-  simulateClusterAlert() {
-    // Bring Bilal and Surveyor Unit 01 to the same cafe
-    const cafeCoords = { lat: 31.5120, lng: 74.3510 };
-    this.updateEmployeePosition('emp_01', cafeCoords, 0, 0, 'Cafe Bistro, Gulberg', 'idle');
-    this.updateEmployeePosition('emp_02', { lat: 31.5122, lng: 74.3512 }, 0, 0, 'Cafe Bistro, Gulberg', 'idle');
-
-    this.addAlert({
-      type: 'cluster',
-      severity: 'warning',
-      title: '⚠️ FIELD CLUSTERING ALERT',
-      message: 'Surveyor Unit 01 and Bilal Ahmed are 18 meters apart at Cafe Bistro for 20+ mins. Possible unscheduled gathering.',
-      timestamp: new Date().toLocaleTimeString(),
-      employeeId: 'emp_01'
-    });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('update-modal-changed'));
+    }
     this.notify();
   }
 }
