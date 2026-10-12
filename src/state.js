@@ -1,7 +1,10 @@
 // EstateRadar State Management Engine
 // Clean Architecture — Zero Dummy Data — Tenant Isolated Storage
+import { registerPlugin } from '@capacitor/core';
 import { supabase } from './services/supabase.js';
 import { storage } from './services/storage.js';
+
+const AppUpdater = registerPlugin('AppUpdater');
 
 class StateManager {
   constructor() {
@@ -101,6 +104,11 @@ class StateManager {
       speedMultiplier: 1,
       selectedEmployeeId: null
     };
+
+    // Initial live update check
+    setTimeout(() => {
+      this.checkForUpdatesOnline();
+    }, 1000);
   }
 
   subscribe(listener) {
@@ -648,9 +656,70 @@ class StateManager {
     this.notify();
   }
 
-  // --- Instant Reactive Update Modal ---
+  // --- Live Dynamic In-App Auto-Update Engine ---
+  async checkForUpdatesOnline() {
+    try {
+      let releaseData = null;
+      try {
+        const res = await fetch('https://api.github.com/repos/darkangle4022211-cpu/estateradar-app/releases/latest');
+        if (res.ok) {
+          releaseData = await res.json();
+        }
+      } catch (e) {
+        console.warn('Direct GitHub API check skipped, attempting version.json:', e);
+      }
+
+      if (!releaseData) {
+        try {
+          const rawRes = await fetch('https://raw.githubusercontent.com/darkangle4022211-cpu/estateradar-app/main/version.json');
+          if (rawRes.ok) {
+            const vData = await rawRes.json();
+            this.updateState.version = vData.version || 'v1.0.3';
+            this.updateState.downloadUrl = vData.downloadUrl || this.updateState.downloadUrl;
+            if (vData.releaseNotes && Array.isArray(vData.releaseNotes)) {
+              this.updateState.releaseNotes = vData.releaseNotes;
+            }
+            this.updateState.isAvailable = true;
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('update-modal-changed'));
+            }
+            return;
+          }
+        } catch (rawErr) {
+          console.warn('Raw version check fallback error:', rawErr);
+        }
+      }
+
+      if (releaseData) {
+        const tag = releaseData.tag_name || 'v1.0.3';
+        const apkAsset = releaseData.assets?.find(a => a.name.endsWith('.apk'));
+        const directApkUrl = apkAsset ? apkAsset.browser_download_url : `https://github.com/darkangle4022211-cpu/estateradar-app/releases/download/${tag}/EstateRadar.apk`;
+        
+        this.updateState.version = tag;
+        this.updateState.downloadUrl = directApkUrl;
+        this.updateState.isAvailable = true;
+
+        if (releaseData.body) {
+          const lines = releaseData.body.split('\n')
+            .map(l => l.trim().replace(/^[-*]\s*/, ''))
+            .filter(l => l.length > 5 && !l.startsWith('#'));
+          if (lines.length > 0) {
+            this.updateState.releaseNotes = lines.slice(0, 5);
+          }
+        }
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('update-modal-changed'));
+        }
+      }
+    } catch (err) {
+      console.warn('checkForUpdatesOnline failed:', err);
+    }
+  }
+
   openUpdateModal() {
     this.updateState.isModalOpen = true;
+    this.checkForUpdatesOnline();
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('update-modal-changed'));
     }
@@ -665,7 +734,7 @@ class StateManager {
     this.notify();
   }
 
-  triggerUpdateDownload() {
+  async triggerUpdateDownload() {
     this.updateState.isDownloading = true;
     this.updateState.progressPercent = 15;
     this.updateState.isComplete = false;
@@ -675,26 +744,32 @@ class StateManager {
 
     const downloadUrl = this.updateState.downloadUrl;
 
-    // Trigger system browser / download manager in Android Capacitor
+    // 1. If running natively in Android via Capacitor, trigger native AppUpdaterPlugin
+    let nativeTriggered = false;
     try {
-      if (typeof window !== 'undefined') {
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.setAttribute('download', 'EstateRadar.apk');
-        link.target = '_system';
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => {
-          try { document.body.removeChild(link); } catch(e) {}
-        }, 1000);
-
-        // Fallback intent for native webview
-        window.open(downloadUrl, '_system');
+      if (AppUpdater && typeof AppUpdater.startAutoUpdate === 'function') {
+        await AppUpdater.startAutoUpdate({ url: downloadUrl });
+        nativeTriggered = true;
       }
-    } catch (e) {
-      console.warn('System browser trigger fallback:', e);
-      if (typeof window !== 'undefined') {
-        window.location.href = downloadUrl;
+    } catch (nativeErr) {
+      console.log('Native AppUpdater plugin call not available or failed:', nativeErr);
+    }
+
+    // 2. If not triggered natively (e.g. running in web browser), trigger direct APK download via invisible link
+    // NEVER navigate the window to the GitHub repository web page!
+    if (!nativeTriggered && typeof window !== 'undefined') {
+      try {
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = downloadUrl;
+        a.setAttribute('download', 'EstateRadar.apk');
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          try { document.body.removeChild(a); } catch (e) {}
+        }, 1500);
+      } catch (dlErr) {
+        console.warn('Invisible download fallback error:', dlErr);
       }
     }
 
@@ -716,7 +791,7 @@ class StateManager {
           window.dispatchEvent(new CustomEvent('update-modal-changed'));
         }
       }
-    }, 500);
+    }, 600);
   }
 }
 
