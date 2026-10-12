@@ -1,8 +1,8 @@
-// Clean, Enterprise SaaS Multi-Tenant Authentication & Biometric Screen
+// Clean, Dedicated Enterprise Mobile Authentication & Manager Onboarding Screen
 import { state } from '../state.js';
 
-let activeAuthTab = 'surveyor'; // 'surveyor' | 'manager'
-let managerMode = 'login'; // 'login' | 'register'
+let activeAuthTab = 'manager'; // 'manager' | 'surveyor'
+let managerMode = 'register'; // 'register' | 'login'
 
 export function renderLoginScreen() {
   const { auth, employees, company } = state;
@@ -15,13 +15,13 @@ export function renderLoginScreen() {
       <!-- Top Brand Header -->
       <div class="login-brand-header">
         <div class="brand-shield-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.4">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
             <polyline points="9 12 11 14 15 10"></polyline>
           </svg>
         </div>
         <h2 class="login-brand-title">EstateRadar</h2>
-        <p class="login-sub-text">Field Workforce Verification System</p>
+        <p class="login-sub-text">Mobile Workforce & Property Survey Radar</p>
       </div>
 
       <!-- Main Login Card -->
@@ -29,15 +29,188 @@ export function renderLoginScreen() {
 
         <!-- Role Selector Segmented Bar -->
         <div class="auth-role-tabs">
-          <button type="button" class="auth-role-tab ${activeAuthTab === 'surveyor' ? 'active' : ''}" id="tabSelectSurveyor">
-            👷 Field Surveyor
-          </button>
           <button type="button" class="auth-role-tab ${activeAuthTab === 'manager' ? 'active' : ''}" id="tabSelectManager">
             🏢 Agency Manager
           </button>
+          <button type="button" class="auth-role-tab ${activeAuthTab === 'surveyor' ? 'active' : ''}" id="tabSelectSurveyor">
+            👷 Field Surveyor
+          </button>
         </div>
 
-        ${activeAuthTab === 'surveyor' ? `
+        ${activeAuthTab === 'manager' ? `
+          <!-- ================= TAB: AGENCY MANAGER ================= -->
+          <div class="agency-mode-toggle">
+            <button type="button" class="mode-toggle-btn ${managerMode === 'register' ? 'active' : ''}" id="modeManagerRegister">
+              + Register New Agency
+            </button>
+            <button type="button" class="mode-toggle-btn ${managerMode === 'login' ? 'active' : ''}" id="modeManagerLogin">
+              Manager Sign In
+            </button>
+          </div>
+
+          ${managerMode === 'register' ? `
+            <!-- MANAGER REGISTRATION FORM (DEFAULT) -->
+            <div class="card-intro-row">
+              <div>
+                <h3>Create Agency Workspace</h3>
+                <span class="text-dim">Register as Manager to start tracking field staff</span>
+              </div>
+              <span class="auth-mode-pill">New Tenant</span>
+            </div>
+
+            <form class="login-form-body" id="managerRegisterForm">
+              <div class="login-field-group">
+                <label class="field-label" for="regCompanyName">Real Estate Agency / Company Name</label>
+                <div class="input-icon-wrap">
+                  <span class="field-glyph">🏢</span>
+                  <input 
+                    type="text" 
+                    id="regCompanyName" 
+                    class="login-text-input" 
+                    placeholder="e.g. Apex Real Estate" 
+                    required 
+                  />
+                </div>
+              </div>
+
+              <div class="login-field-group">
+                <label class="field-label" for="regCompanyCode">Choose Agency Code (Short Identifier)</label>
+                <div class="input-icon-wrap">
+                  <span class="field-glyph">🏷️</span>
+                  <input 
+                    type="text" 
+                    id="regCompanyCode" 
+                    class="login-text-input uppercase" 
+                    placeholder="e.g. APEX" 
+                    maxlength="8" 
+                    required 
+                  />
+                </div>
+                <span class="field-hint">Your field surveyors will enter this code to log into your agency on their phones.</span>
+              </div>
+
+              <div class="login-field-group">
+                <label class="field-label" for="regManagerName">Manager Full Name</label>
+                <div class="input-icon-wrap">
+                  <span class="field-glyph">👤</span>
+                  <input 
+                    type="text" 
+                    id="regManagerName" 
+                    class="login-text-input" 
+                    placeholder="e.g. Alex Morgan" 
+                    required 
+                  />
+                </div>
+              </div>
+
+              <div class="login-field-group">
+                <label class="field-label" for="regEmail">Manager Email Address</label>
+                <div class="input-icon-wrap">
+                  <span class="field-glyph">✉️</span>
+                  <input 
+                    type="email" 
+                    id="regEmail" 
+                    class="login-text-input" 
+                    placeholder="manager@agency.com" 
+                    required 
+                  />
+                </div>
+              </div>
+
+              <div class="login-field-group">
+                <label class="field-label" for="regPassword">Manager Password</label>
+                <div class="input-icon-wrap">
+                  <span class="field-glyph">🔒</span>
+                  <input 
+                    type="password" 
+                    id="regPassword" 
+                    class="login-text-input" 
+                    placeholder="Minimum 6 characters" 
+                    required 
+                  />
+                </div>
+              </div>
+
+              <div id="managerRegisterError" class="login-error-alert hidden"></div>
+
+              <button type="submit" class="btn btn-primary btn-full login-submit-btn" id="regSubmitBtn">
+                🚀 Register Agency & Open App
+              </button>
+
+              <div class="auth-switch-link-row">
+                <span>Already have an agency?</span>
+                <button type="button" class="plain-action-link" id="switchMgrLoginBtn">Sign In here</button>
+              </div>
+            </form>
+          ` : `
+            <!-- MANAGER LOGIN FORM -->
+            <div class="card-intro-row">
+              <div>
+                <h3>Manager Sign In</h3>
+                <span class="text-dim">Enter your Agency Code and Manager credentials</span>
+              </div>
+              <span class="auth-mode-pill">Cloud Isolated</span>
+            </div>
+
+            <form class="login-form-body" id="managerLoginForm">
+              <div class="login-field-group">
+                <label class="field-label" for="mgrCompanyCode">Agency Code</label>
+                <div class="input-icon-wrap">
+                  <span class="field-glyph">🏢</span>
+                  <input 
+                    type="text" 
+                    id="mgrCompanyCode" 
+                    class="login-text-input uppercase" 
+                    placeholder="e.g. PRIME" 
+                    value="${currentCompanyCode}" 
+                    required 
+                  />
+                </div>
+              </div>
+
+              <div class="login-field-group">
+                <label class="field-label" for="mgrEmail">Manager Email</label>
+                <div class="input-icon-wrap">
+                  <span class="field-glyph">✉️</span>
+                  <input 
+                    type="email" 
+                    id="mgrEmail" 
+                    class="login-text-input" 
+                    placeholder="manager@agency.com" 
+                    value="manager@estateradar.com" 
+                    required 
+                  />
+                </div>
+              </div>
+
+              <div class="login-field-group">
+                <label class="field-label" for="mgrPassword">Manager Password</label>
+                <div class="input-icon-wrap">
+                  <span class="field-glyph">🔒</span>
+                  <input 
+                    type="password" 
+                    id="mgrPassword" 
+                    class="login-text-input" 
+                    placeholder="Enter password" 
+                    value="Admin@2026" 
+                    required 
+                  />
+                </div>
+              </div>
+
+              <div id="managerLoginError" class="login-error-alert hidden"></div>
+
+              <button type="submit" class="btn btn-primary btn-full login-submit-btn" id="mgrLoginSubmitBtn">
+                Sign In & Launch App
+              </button>
+
+              <div class="auth-switch-link-row">
+                <span>Need a new workspace?</span>
+                <button type="button" class="plain-action-link" id="switchMgrRegisterBtn">+ Register New Agency</button>
+              </div>
+            </form>
+          `}
+        ` : `
           <!-- ================= TAB: SURVEYOR LOGIN ================= -->
           <div class="card-intro-row">
             <div>
@@ -140,153 +313,6 @@ export function renderLoginScreen() {
               `).join('')}
             </div>
           </div>
-        ` : `
-          <!-- ================= TAB: AGENCY MANAGER PORTAL ================= -->
-          <div class="agency-mode-toggle">
-            <button type="button" class="mode-toggle-btn ${managerMode === 'login' ? 'active' : ''}" id="modeManagerLogin">
-              Manager Sign In
-            </button>
-            <button type="button" class="mode-toggle-btn ${managerMode === 'register' ? 'active' : ''}" id="modeManagerRegister">
-              + Register New Agency
-            </button>
-          </div>
-
-          ${managerMode === 'login' ? `
-            <div class="card-intro-row">
-              <div>
-                <h3>Agency Dashboard</h3>
-                <span class="text-dim">Sign in to track your field workforce</span>
-              </div>
-              <span class="auth-mode-pill">Tenant Isolated</span>
-            </div>
-
-            <form class="login-form-body" id="managerLoginForm">
-              <div class="login-field-group">
-                <label class="field-label" for="mgrCompanyCode">Agency Code</label>
-                <div class="input-icon-wrap">
-                  <span class="field-glyph">🏢</span>
-                  <input 
-                    type="text" 
-                    id="mgrCompanyCode" 
-                    class="login-text-input uppercase" 
-                    placeholder="e.g. PRIME" 
-                    value="${currentCompanyCode}" 
-                    required 
-                  />
-                </div>
-              </div>
-
-              <div class="login-field-group">
-                <label class="field-label" for="mgrEmail">Manager Email</label>
-                <div class="input-icon-wrap">
-                  <span class="field-glyph">✉️</span>
-                  <input 
-                    type="email" 
-                    id="mgrEmail" 
-                    class="login-text-input" 
-                    placeholder="manager@agency.com" 
-                    value="manager@estateradar.com" 
-                    required 
-                  />
-                </div>
-              </div>
-
-              <div class="login-field-group">
-                <label class="field-label" for="mgrPassword">Manager Password</label>
-                <div class="input-icon-wrap">
-                  <span class="field-glyph">🔒</span>
-                  <input 
-                    type="password" 
-                    id="mgrPassword" 
-                    class="login-text-input" 
-                    placeholder="Enter password" 
-                    value="Admin@2026" 
-                    required 
-                  />
-                </div>
-              </div>
-
-              <div id="managerLoginError" class="login-error-alert hidden"></div>
-
-              <button type="submit" class="btn btn-primary btn-full login-submit-btn" id="mgrLoginSubmitBtn">
-                Launch Agency Radar
-              </button>
-            </form>
-          ` : `
-            <div class="card-intro-row">
-              <div>
-                <h3>Create Real Estate Agency</h3>
-                <span class="text-dim">Dedicated private tenant workspace</span>
-              </div>
-              <span class="auth-mode-pill">Private Database</span>
-            </div>
-
-            <form class="login-form-body" id="managerRegisterForm">
-              <div class="login-field-group">
-                <label class="field-label" for="regCompanyName">Agency / Company Name</label>
-                <div class="input-icon-wrap">
-                  <span class="field-glyph">🏢</span>
-                  <input 
-                    type="text" 
-                    id="regCompanyName" 
-                    class="login-text-input" 
-                    placeholder="e.g. Skyline Real Estate" 
-                    required 
-                  />
-                </div>
-              </div>
-
-              <div class="login-field-group">
-                <label class="field-label" for="regCompanyCode">Unique Agency Code (Short)</label>
-                <div class="input-icon-wrap">
-                  <span class="field-glyph">🏷️</span>
-                  <input 
-                    type="text" 
-                    id="regCompanyCode" 
-                    class="login-text-input uppercase" 
-                    placeholder="e.g. SKYLINE" 
-                    maxlength="10" 
-                    required 
-                  />
-                </div>
-                <span class="text-dim">Your surveyors will use this code to sign in on their phones.</span>
-              </div>
-
-              <div class="login-field-group">
-                <label class="field-label" for="regEmail">Manager Email</label>
-                <div class="input-icon-wrap">
-                  <span class="field-glyph">✉️</span>
-                  <input 
-                    type="email" 
-                    id="regEmail" 
-                    class="login-text-input" 
-                    placeholder="admin@skyline.com" 
-                    required 
-                  />
-                </div>
-              </div>
-
-              <div class="login-field-group">
-                <label class="field-label" for="regPassword">Manager Password</label>
-                <div class="input-icon-wrap">
-                  <span class="field-glyph">🔒</span>
-                  <input 
-                    type="password" 
-                    id="regPassword" 
-                    class="login-text-input" 
-                    placeholder="Minimum 6 characters" 
-                    required 
-                  />
-                </div>
-              </div>
-
-              <div id="managerRegisterError" class="login-error-alert hidden"></div>
-
-              <button type="submit" class="btn btn-primary btn-full login-submit-btn" id="regSubmitBtn">
-                Register Agency & Launch Radar
-              </button>
-            </form>
-          `}
         `}
 
       </div>
@@ -338,6 +364,8 @@ export function bindLoginScreenEvents() {
   const tabManager = document.getElementById('tabSelectManager');
   const modeLogin = document.getElementById('modeManagerLogin');
   const modeRegister = document.getElementById('modeManagerRegister');
+  const switchMgrLoginBtn = document.getElementById('switchMgrLoginBtn');
+  const switchMgrRegisterBtn = document.getElementById('switchMgrRegisterBtn');
 
   if (tabSurveyor) {
     tabSurveyor.onclick = () => {
@@ -367,26 +395,40 @@ export function bindLoginScreenEvents() {
     };
   }
 
-  // Surveyor Login
+  if (switchMgrLoginBtn) {
+    switchMgrLoginBtn.onclick = () => {
+      managerMode = 'login';
+      window.dispatchEvent(new CustomEvent('re-render-request'));
+    };
+  }
+
+  if (switchMgrRegisterBtn) {
+    switchMgrRegisterBtn.onclick = () => {
+      managerMode = 'register';
+      window.dispatchEvent(new CustomEvent('re-render-request'));
+    };
+  }
+
+  // Surveyor Login Form
   const surveyorForm = document.getElementById('surveyorLoginForm');
   if (surveyorForm) {
     surveyorForm.onsubmit = async (e) => {
       e.preventDefault();
-      const code = document.getElementById('loginCompanyCode').value;
-      const user = document.getElementById('loginUsername').value;
-      const pass = document.getElementById('loginPassword').value;
+      const code = document.getElementById('loginCompanyCode').value.trim();
+      const user = document.getElementById('loginUsername').value.trim();
+      const pass = document.getElementById('loginPassword').value.trim();
       const errBox = document.getElementById('surveyorLoginError');
       const submitBtn = document.getElementById('surveyorLoginSubmitBtn');
 
       if (submitBtn) submitBtn.disabled = true;
       if (errBox) errBox.classList.add('hidden');
 
-      const res = await state.loginWithCredentials(user, pass, code);
+      const res = await state.loginAsSurveyor(code, user, pass);
       if (submitBtn) submitBtn.disabled = false;
 
       if (!res.success) {
         if (errBox) {
-          errBox.innerText = res.error;
+          errBox.innerText = res.error || 'Invalid credentials.';
           errBox.classList.remove('hidden');
         }
       } else {
@@ -395,14 +437,14 @@ export function bindLoginScreenEvents() {
     };
   }
 
-  // Manager Login
+  // Manager Login Form
   const mgrForm = document.getElementById('managerLoginForm');
   if (mgrForm) {
     mgrForm.onsubmit = async (e) => {
       e.preventDefault();
-      const code = document.getElementById('mgrCompanyCode').value;
-      const email = document.getElementById('mgrEmail').value;
-      const pass = document.getElementById('mgrPassword').value;
+      const code = document.getElementById('mgrCompanyCode').value.trim();
+      const email = document.getElementById('mgrEmail').value.trim();
+      const pass = document.getElementById('mgrPassword').value.trim();
       const errBox = document.getElementById('managerLoginError');
       const submitBtn = document.getElementById('mgrLoginSubmitBtn');
 
@@ -414,7 +456,7 @@ export function bindLoginScreenEvents() {
 
       if (!res.success) {
         if (errBox) {
-          errBox.innerText = res.error;
+          errBox.innerText = res.error || 'Failed to sign in as manager.';
           errBox.classList.remove('hidden');
         }
       } else {
@@ -423,27 +465,42 @@ export function bindLoginScreenEvents() {
     };
   }
 
-  // Manager Register
+  // Manager Register Form (Primary User Goal)
   const regForm = document.getElementById('managerRegisterForm');
   if (regForm) {
     regForm.onsubmit = async (e) => {
       e.preventDefault();
-      const name = document.getElementById('regCompanyName').value;
-      const code = document.getElementById('regCompanyCode').value;
-      const email = document.getElementById('regEmail').value;
-      const pass = document.getElementById('regPassword').value;
+      const name = document.getElementById('regCompanyName').value.trim();
+      const code = document.getElementById('regCompanyCode').value.trim().toUpperCase();
+      const mgrName = document.getElementById('regManagerName')?.value.trim() || 'Agency Manager';
+      const email = document.getElementById('regEmail').value.trim();
+      const pass = document.getElementById('regPassword').value.trim();
       const errBox = document.getElementById('managerRegisterError');
       const submitBtn = document.getElementById('regSubmitBtn');
 
-      if (submitBtn) submitBtn.disabled = true;
+      if (!name || !code || !email || !pass) {
+        if (errBox) {
+          errBox.innerText = 'Please complete all required fields.';
+          errBox.classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'Creating Workspace...';
+      }
       if (errBox) errBox.classList.add('hidden');
 
-      const res = await state.registerNewCompany(name, code, email, pass);
-      if (submitBtn) submitBtn.disabled = false;
+      const res = await state.registerNewCompany(name, code, email, pass, mgrName);
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerText = '🚀 Register Agency & Open App';
+      }
 
       if (!res.success) {
         if (errBox) {
-          errBox.innerText = res.error;
+          errBox.innerText = res.error || 'Could not complete registration.';
           errBox.classList.remove('hidden');
         }
       } else {
@@ -451,6 +508,22 @@ export function bindLoginScreenEvents() {
       }
     };
   }
+
+  // Demo Staff Pill select
+  document.querySelectorAll('.demo-emp-pill').forEach(pill => {
+    pill.onclick = () => {
+      const empId = pill.getAttribute('data-emp-id');
+      const emp = state.employees.find(e => e.id === empId);
+      if (emp) {
+        const uInput = document.getElementById('loginUsername');
+        const pInput = document.getElementById('loginPassword');
+        if (uInput) uInput.value = emp.username || emp.id;
+        if (pInput) pInput.value = emp.password || 'Pass@2026';
+        document.querySelectorAll('.demo-emp-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+      }
+    };
+  });
 
   // Biometric Unlock
   const biometricBtn = document.getElementById('biometricLoginBtn');
@@ -488,44 +561,16 @@ export function bindLoginScreenEvents() {
   if (forgotForm) {
     forgotForm.onsubmit = (e) => {
       e.preventDefault();
-      const inputVal = document.getElementById('resetUsernameInput').value;
-      const statusDiv = document.getElementById('forgotPassStatus');
-      const sendBtn = document.getElementById('sendResetReqBtn');
-
-      const res = state.requestPasswordReset(inputVal);
-      if (res.success) {
-        if (statusDiv) {
-          statusDiv.innerHTML = `
-            <div class="success-box">
-              <span>✅ Reset alert sent to your Agency Manager.</span>
-            </div>
-          `;
-          statusDiv.classList.remove('hidden');
-        }
-        if (sendBtn) sendBtn.disabled = true;
-        setTimeout(() => {
-          closeForgotHandler();
-        }, 2200);
-      } else {
-        if (statusDiv) {
-          statusDiv.innerHTML = `<div class="error-box"><span>${res.error}</span></div>`;
-          statusDiv.classList.remove('hidden');
-        }
+      const statusBox = document.getElementById('forgotPassStatus');
+      const val = document.getElementById('resetUsernameInput').value.trim();
+      state.requestPasswordReset(val);
+      if (statusBox) {
+        statusBox.innerText = `Alert dispatched to Agency Manager for "${val}". Temporary access password will be issued.`;
+        statusBox.classList.remove('hidden');
       }
+      setTimeout(() => {
+        closeForgotHandler();
+      }, 1800);
     };
   }
-
-  // Demo Switcher
-  const demoPills = document.querySelectorAll('.demo-emp-pill');
-  demoPills.forEach(pill => {
-    pill.onclick = () => {
-      const empId = pill.getAttribute('data-emp-id');
-      const emp = state.employees.find(e => e.id === empId);
-      if (emp) {
-        state.currentUser = { ...emp };
-        state.auth.currentUser = { ...emp };
-        window.dispatchEvent(new CustomEvent('re-render-request'));
-      }
-    };
-  });
 }
