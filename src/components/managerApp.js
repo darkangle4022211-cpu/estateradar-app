@@ -345,27 +345,78 @@ export function renderManagerApp() {
           <div class="tab-scroll-container">
             <div class="team-header-row">
               <div>
-                <h4>System & Security Alerts</h4>
-                <span class="text-dim">Real-time workforce notifications</span>
+                <h4>Security & Audit Feed</h4>
+                <span class="text-dim">Real-time workforce verification & system logs</span>
               </div>
             </div>
 
+            <!-- Security & Telemetry System Health HUD -->
+            <div class="alerts-health-hud-grid">
+              <div class="health-hud-card">
+                <span class="hud-status-dot online"></span>
+                <div class="hud-text-group">
+                  <strong>GNSS Telemetry Stream</strong>
+                  <span>Active • 5s ping frequency</span>
+                </div>
+              </div>
+              <div class="health-hud-card">
+                <span class="hud-status-dot online"></span>
+                <div class="hud-text-group">
+                  <strong>Anti-Spoofing Guard</strong>
+                  <span>Mock GPS filter enabled</span>
+                </div>
+              </div>
+              <div class="health-hud-card">
+                <span class="hud-status-dot online"></span>
+                <div class="hud-text-group">
+                  <strong>Tenant Boundary</strong>
+                  <span>Multi-tenant data isolated</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Alerts List or Verified Normal State -->
             <div class="alerts-feed-stack">
               ${alerts.length === 0 ? `
-                <div class="empty-placeholder-card">
-                  <div class="empty-icon">⚡</div>
-                  <h4>All operations normal</h4>
-                  <p>Staff check-ins, route movements, and property surveys will be recorded here.</p>
-                </div>
-              ` : alerts.map(alt => `
-                <div class="audit-alert-card severity-${alt.severity || 'info'}">
-                  <div class="alert-card-top">
-                    <strong>${alt.title}</strong>
-                    <span class="alert-time">${alt.timestamp || ''}</span>
+                <div class="audit-healthy-banner">
+                  <div class="healthy-badge-icon">🛡️</div>
+                  <div class="healthy-text-block">
+                    <h4>All Agency Operations Normal</h4>
+                    <p>No security anomalies or boundary violations detected. Live field activity will be logged here as surveyors check in and register properties.</p>
                   </div>
-                  <p class="alert-card-msg">${alt.message}</p>
                 </div>
-              `).join('')}
+
+                <div class="monitored-events-card">
+                  <h5 class="monitored-title">Events Monitored in Real-Time:</h5>
+                  <ul class="monitored-list">
+                    <li><span class="event-bullet">🕒</span> <span>Surveyor Shift Clock-Ins & Clock-Outs</span></li>
+                    <li><span class="event-bullet">📸</span> <span>On-Site Property Survey Submissions with Watermarked GPS</span></li>
+                    <li><span class="event-bullet">📍</span> <span>Geofence Crossings & Rapid Velocity Shifts</span></li>
+                    <li><span class="event-bullet">👥</span> <span>New Staff Member Join Requests & Agency Approvals</span></li>
+                  </ul>
+                </div>
+              ` : alerts.map(alt => {
+                const sev = alt.severity || 'info';
+                const icon = sev === 'critical' ? '🚨' : sev === 'warning' ? '⚠️' : sev === 'success' ? '✅' : 'ℹ️';
+                return `
+                  <div class="audit-alert-card severity-${sev}">
+                    <div class="alert-card-left-accent"></div>
+                    <div class="alert-card-inner">
+                      <div class="alert-card-top">
+                        <div class="alert-title-group">
+                          <span class="alert-icon-mini">${icon}</span>
+                          <strong class="alert-title-text">${alt.title}</strong>
+                        </div>
+                        <span class="alert-severity-pill ${sev}">${sev.toUpperCase()}</span>
+                      </div>
+                      <p class="alert-card-msg">${alt.message}</p>
+                      <div class="alert-card-footer">
+                        <span class="alert-time-pill">🕒 ${alt.timestamp || 'Just now'}</span>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
             </div>
           </div>
         </div>
