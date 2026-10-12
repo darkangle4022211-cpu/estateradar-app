@@ -244,16 +244,17 @@ class StateManager {
     this.company = supabase.getActiveCompany();
     this.loadCompanyData();
     
-    // In-App Online Update State (Strictly according to user specifications)
+    // In-App Online Update State
     this.updateState = {
-      isAvailable: true, // Visible immediately as "Update available" sign
+      isAvailable: true,
       isModalOpen: false,
-      version: 'v2.4.1 (Stable)',
+      version: 'v1.0.2',
+      downloadUrl: 'https://github.com/darkangle4022211-cpu/estateradar-app/releases/download/v1.0.2/EstateRadar.apk',
       releaseNotes: [
-        'Stationary geofencing battery optimization (0.2%/hr)',
-        'Sub-second live GPS sync pipeline',
-        'Cryptographic camera watermark anti-tamper update',
-        'Background sync stability improvements'
+        'Over-the-air online in-app updates enabled (no USB / PC transfer needed)',
+        'Direct Agency Manager registration & private workspace onboarding',
+        'Edge-to-Edge Android 15 & Material 3 compliant mobile layout',
+        'Sub-second live GPS fleet telemetry pipeline'
       ],
       isDownloading: false,
       progressPercent: 0,
