@@ -7,6 +7,7 @@ import { renderLoginScreen, bindLoginScreenEvents } from './components/loginScre
 import { renderManagerApp, bindManagerAppEvents } from './components/managerApp.js';
 import { renderMobileApp, bindMobileAppEvents } from './components/mobileApp.js';
 import { renderPropertyDossierModal, bindPropertyDossierEvents } from './components/propertyModal.js';
+import { renderUpdateModal, bindUpdateModalEvents } from './components/updateModal.js';
 
 let activeDossierProperty = null;
 
@@ -21,6 +22,7 @@ export function renderApp() {
         ${renderLoginScreen()}
       </div>
       <div id="propertyDossierContainer"></div>
+      <div id="updateModalContainer"></div>
     `;
     bindLoginScreenEvents();
     return;
@@ -36,6 +38,11 @@ export function renderApp() {
       ${isManager ? renderManagerApp() : renderMobileApp()}
     </div>
 
+    <!-- Online OTA In-App Update Modal -->
+    <div id="updateModalContainer">
+      ${renderUpdateModal()}
+    </div>
+
     <!-- Property Dossier Overlay -->
     <div id="propertyDossierContainer">
       ${activeDossierProperty ? renderPropertyDossierModal(activeDossierProperty) : ''}
@@ -47,6 +54,8 @@ export function renderApp() {
   } else {
     bindMobileAppEvents();
   }
+
+  bindUpdateModalEvents();
 
   // Bind Property Dossier events if active
   if (activeDossierProperty) {
