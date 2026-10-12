@@ -42,8 +42,9 @@ jobs:
 
       - name: Configure Hardware Permissions & Gradle Dependencies
         run: |
-          python3 -c "
+          python3 - << 'EOF'
           import os
+          import re
 
           # 1. Hardware Permissions in AndroidManifest.xml
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
@@ -51,14 +52,14 @@ jobs:
               with open(manifest_path, 'r') as f:
                   content = f.read()
               perms = '''    <!-- Hardware Permissions for Field Telemetry & Surveys -->
-              <uses-permission android:name=\"android.permission.INTERNET\" />
-              <uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\" />
-              <uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\" />
-              <uses-permission android:name=\"android.permission.ACCESS_BACKGROUND_LOCATION\" />
-              <uses-permission android:name=\"android.permission.CAMERA\" />
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+              <uses-permission android:name="android.permission.CAMERA" />
           '''
               if 'ACCESS_FINE_LOCATION' not in content:
-                  content = content.replace('<uses-permission android:name=\"android.permission.INTERNET\" />', perms)
+                  content = content.replace('<uses-permission android:name="android.permission.INTERNET" />', perms)
                   with open(manifest_path, 'w') as f:
                       f.write(content)
 
@@ -67,7 +68,7 @@ jobs:
           if os.path.exists(app_gradle):
               with open(app_gradle, 'r') as f:
                   app_content = f.read()
-              import re
+
               app_content = re.sub(r'versionCode \d+', 'versionCode 3', app_content)
               app_content = re.sub(r'versionName "[^"]+"', 'versionName "1.0.3"', app_content)
 
@@ -96,7 +97,7 @@ jobs:
                   with open(root_gradle, 'w') as f:
                       f.write(root_content)
           print('Successfully patched AndroidManifest.xml and Gradle build configs for v1.0.3!')
-          "
+          EOF
 
       - name: Build Debug APK via Gradle
         run: |
