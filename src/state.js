@@ -71,13 +71,14 @@ class StateManager {
     this.updateState = {
       isAvailable: true,
       isModalOpen: false,
-      version: 'v1.0.2',
-      downloadUrl: 'https://github.com/darkangle4022211-cpu/estateradar-app/releases/download/v1.0.2/EstateRadar.apk',
+      version: 'v1.0.3',
+      downloadUrl: 'https://github.com/darkangle4022211-cpu/estateradar-app/releases/download/v1.0.3/EstateRadar.apk',
       releaseNotes: [
-        'Over-the-air online in-app updates enabled (no USB / PC transfer needed)',
-        'Direct Agency Manager registration & private workspace onboarding',
-        'Edge-to-Edge Android 15 & Material 3 compliant mobile layout',
-        'Sub-second live GPS fleet telemetry pipeline'
+        'Direct 1-tap in-app online OTA update (no PC or USB cable needed)',
+        'Zero dummy data clean slate — pure enterprise tenant isolation',
+        'Agency Manager pending join request approval & staff management',
+        'Hardware camera with real GPS timestamp and coordinates watermarking',
+        'Fixed contrast theme glitch on authentication & tenant switcher'
       ],
       isDownloading: false,
       progressPercent: 0,
@@ -662,6 +663,60 @@ class StateManager {
       window.dispatchEvent(new CustomEvent('update-modal-changed'));
     }
     this.notify();
+  }
+
+  triggerUpdateDownload() {
+    this.updateState.isDownloading = true;
+    this.updateState.progressPercent = 15;
+    this.updateState.isComplete = false;
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('update-modal-changed'));
+    }
+
+    const downloadUrl = this.updateState.downloadUrl;
+
+    // Trigger system browser / download manager in Android Capacitor
+    try {
+      if (typeof window !== 'undefined') {
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.setAttribute('download', 'EstateRadar.apk');
+        link.target = '_system';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          try { document.body.removeChild(link); } catch(e) {}
+        }, 1000);
+
+        // Fallback intent for native webview
+        window.open(downloadUrl, '_system');
+      }
+    } catch (e) {
+      console.warn('System browser trigger fallback:', e);
+      if (typeof window !== 'undefined') {
+        window.location.href = downloadUrl;
+      }
+    }
+
+    // Dynamic progress feedback
+    let progress = 15;
+    const interval = setInterval(() => {
+      progress += 20;
+      if (progress < 95) {
+        this.updateState.progressPercent = progress;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('update-modal-changed'));
+        }
+      } else {
+        clearInterval(interval);
+        this.updateState.progressPercent = 100;
+        this.updateState.isDownloading = false;
+        this.updateState.isComplete = true;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('update-modal-changed'));
+        }
+      }
+    }, 500);
   }
 }
 
