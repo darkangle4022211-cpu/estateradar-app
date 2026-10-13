@@ -1,7 +1,7 @@
 {
   "name": "tracker",
   "private": true,
-  "version": "1.0.3",
+  "version": "1.0.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +9,10 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "autoprefixer": "^10.6.1",
+    "postcss": "^8.5.30",
+    "tailwindcss": "^4.3.3",
     "vite": "^6.3.5"
   },
   "dependencies": {
