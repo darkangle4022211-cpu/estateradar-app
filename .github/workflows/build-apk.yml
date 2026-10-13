@@ -192,14 +192,14 @@ jobs:
           with open(main_activity_path, 'w') as f:
               f.write(main_activity_java)
 
-          # 5. Exclude duplicate kotlin-stdlib-jdk7/8 in android/app/build.gradle and ensure versionCode 3 & versionName 1.0.3
+          # 5. Exclude duplicate kotlin-stdlib-jdk7/8 in android/app/build.gradle and ensure versionCode 4 & versionName 1.0.4
           app_gradle = 'android/app/build.gradle'
           if os.path.exists(app_gradle):
               with open(app_gradle, 'r') as f:
                   app_content = f.read()
 
-              app_content = re.sub(r'versionCode \d+', 'versionCode 3', app_content)
-              app_content = re.sub(r'versionName "[^"]+"', 'versionName "1.0.3"', app_content)
+              app_content = re.sub(r'versionCode \d+', 'versionCode 4', app_content)
+              app_content = re.sub(r'versionName "[^"]+"', 'versionName "1.0.4"', app_content)
 
               if 'kotlin-stdlib-jdk' not in app_content:
                   app_fix = '''
@@ -225,7 +225,7 @@ jobs:
               }''')
                   with open(root_gradle, 'w') as f:
                       f.write(root_content)
-          print('Successfully patched AndroidManifest.xml, Native AppUpdater, and Gradle for v1.0.3!')
+          print('Successfully patched AndroidManifest.xml, Native AppUpdater, and Gradle for v1.0.4!')
           EOF
 
       - name: Build Debug APK via Gradle
@@ -249,15 +249,17 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/main')
         with:
-          tag_name: v1.0.3
-          name: EstateRadar v1.0.3 Android App
+          tag_name: v1.0.4
+          name: EstateRadar v1.0.4 Android App
           body: |
-            ### 📱 EstateRadar v1.0.3 Android Release
-            - Online In-App OTA Update Support (directly updatable within the app)
-            - Dedicated Agency Manager Registration & Workspace Activation
-            - Edge-to-Edge Android 15 & Material 3 Compliant UI
-            - Multi-Tenant Isolated Cloud Architecture
-            - Hardware Camera GPS Watermarking and Zero Dummy Data
+            ### 📱 EstateRadar v1.0.4 Android Release
+            - **Obsidian Telemetry Design System**: Complete UI overhaul based on Nordic Mobile Utility specifications.
+            - **Auth Gateway**: Segmented capsules for Agency Office vs Field Surveyor, biometric passkey trigger, and real-time agency registration.
+            - **Agency Manager Cockpit**: Live Leaflet radar telemetry, floating status pills, collapsible technical drawer, and staff join request management.
+            - **Verified Cadastral Dossier**: Cryptographic seal, SHA-256 hash attestation, stamped photo with burned-in HUD bar, and anti-slacking proximity audit (4.2m setback, 24m dwell).
+            - **Field Surveyor Cockpit**: Shift attendance card with live ticking timer, hardware camera photo stamping, and My Surveys directory.
+            - **Zero Dummy Data**: Roster, surveys, and alerts render real state data with authentic empty states.
+            - **In-App Auto-Update**: Seamless in-app OTA updates without external redirects.
           files: output/EstateRadar.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

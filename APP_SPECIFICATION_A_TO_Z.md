@@ -113,7 +113,7 @@ When the user taps the **EstateRadar** icon on their phone home screen:
 
 ## 4. 🔐 Phase 1: Authentication & Onboarding Gateway (A to Z)
 
-**File Reference**: `src/components/loginScreen.js`
+**File Reference**: [`src/components/loginScreen.js`](file:///run/media/hamza/Disk%20D/tracker/src/components/loginScreen.js)
 
 ### 4.1 Header & Brand Identity
 * **Shield Radar Icon**: Emerald green vector icon (`#10B981`) representing enterprise security and tracking.
@@ -201,7 +201,7 @@ A prominent two-button capsule tab allows instant switching between user persona
 
 ## 5. 🏢 Phase 2: Agency Manager Mobile Console (A to Z)
 
-**File Reference**: `src/components/managerApp.js`
+**File Reference**: [`src/components/managerApp.js`](file:///run/media/hamza/Disk%20D/tracker/src/components/managerApp.js)
 
 ```
 +--------------------------------------------------------------+
@@ -330,7 +330,7 @@ Allows managers to create staff credentials without waiting for a request:
 
 ## 6. 👷 Phase 3: Field Surveyor Mobile Cockpit (A to Z)
 
-**File Reference**: `src/components/mobileApp.js`
+**File Reference**: [`src/components/mobileApp.js`](file:///run/media/hamza/Disk%20D/tracker/src/components/mobileApp.js)
 
 ```
 +--------------------------------------------------------------+
@@ -450,7 +450,7 @@ Allows managers to create staff credentials without waiting for a request:
 
 ## 7. 📄 Phase 4: Verified Property Dossier & PDF Export Modal
 
-**File Reference**: `src/components/propertyModal.js`
+**File Reference**: [`src/components/propertyModal.js`](file:///run/media/hamza/Disk%20D/tracker/src/components/propertyModal.js)
 
 When a manager taps on any property in the Surveys tab:
 1. **Cryptographic Header Seal**: Displays an emerald shield badge: *"GPS Cryptographically Verified"*.
@@ -470,7 +470,7 @@ When a manager taps on any property in the Surveys tab:
 
 ## 8. 🔄 Phase 5: Seamless In-App Auto-Updater Engine
 
-**File Reference**: `src/components/updateModal.js` and `src/state.js`
+**File Reference**: [`src/components/updateModal.js`](file:///run/media/hamza/Disk%20D/tracker/src/components/updateModal.js) and [`src/state.js`](file:///run/media/hamza/Disk%20D/tracker/src/state.js)
 
 ### Requirements & Behavior:
 * **No External Browser Redirects**: The app never redirects to GitHub repositories, browser download managers, or external APK listings.
@@ -607,4 +607,4 @@ Guarantees strict tenant segregation between agencies:
 
 ---
 
-*Document compiled and verified for EstateRadar v1.0.3 production deployment.*
+*Document compiled and verified for EstateRadar v1.0.4 production deployment.*

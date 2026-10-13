@@ -6,7 +6,7 @@ import { storage } from './services/storage.js';
 
 const AppUpdater = registerPlugin('AppUpdater');
 
-export const CURRENT_APP_VERSION = 'v1.0.3';
+export const CURRENT_APP_VERSION = 'v1.0.4';
 
 export function normalizeVersion(v) {
   if (!v) return '0.0.0';

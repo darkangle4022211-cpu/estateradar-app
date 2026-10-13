@@ -1,5 +1,6 @@
-// EstateRadar — Clean, Human-Designed Mobile Authentication & Onboarding
-// Material 3 compliant — Zero Dummy Data — No Auto-fill Bugs — High Contrast UI
+// EstateRadar — Nordic Mobile Utility Authentication Gateway
+// Exactly Matching stitch_estateradar_mobile_app_ui / obsidian_telemetry
+// Version: 1.0.4 — Zero Dummy Data — No Auto-fill Bugs — High Precision UI
 import { state } from '../state.js';
 import { storage } from '../services/storage.js';
 
@@ -7,382 +8,411 @@ let activeRoleTab = 'manager'; // 'manager' | 'employee'
 let managerMode = 'login'; // 'login' | 'register'
 let employeeMode = 'login'; // 'login' | 'register'
 let resetModalOpen = false;
+let showManagerPass = false;
+let showEmployeePass = false;
 
 export function renderLoginScreen() {
   return `
-    <div class="auth-viewport animate-fade-in">
+    <div class="auth-nordic-viewport min-h-screen flex flex-col justify-between antialiased selection:bg-brand-100 selection:text-brand-900">
       
-      <!-- Top Brand Header -->
-      <div class="auth-brand-block">
-        <div class="auth-brand-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-            <polyline points="9 12 11 14 15 10"></polyline>
-          </svg>
+      <!-- Native Mobile Top Status Bar Simulation -->
+      <header class="w-full pt-safe px-6 pt-3 pb-2 flex items-center justify-between text-ink-700 text-xs font-semibold select-none z-30">
+        <span class="tracking-tight text-ink-900 text-[14px] font-bold">EstateRadar</span>
+        <div class="flex items-center space-x-2 text-ink-900">
+          <span class="inline-flex items-center text-[10.5px] font-semibold text-brand-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/70">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse mr-1"></span>
+            RTK v1.0.4 Online
+          </span>
+          <button type="button" class="theme-icon-toggle-btn text-ink-500 hover:text-ink-900" id="authThemeToggleBtn" title="Toggle Theme">
+            ${state.theme === 'light' ? '🌙' : '☀️'}
+          </button>
         </div>
-        <h1 class="auth-brand-name">EstateRadar</h1>
-        <p class="auth-brand-tagline">Workforce & Property Survey Radar</p>
-      </div>
+      </header>
 
-      <!-- Main Clean Card -->
-      <div class="auth-main-card">
+      <!-- Main Container -->
+      <main class="flex-1 w-full max-w-md mx-auto px-6 pt-2 pb-8 flex flex-col justify-start">
         
-        <!-- Primary Role Selector (Manager vs Employee) -->
-        <div class="auth-role-segmented-box" role="tablist">
+        <!-- Brand Emblem & Quick Status Header -->
+        <div class="flex items-center justify-between mb-5">
+          <div class="flex items-center space-x-3">
+            <div class="w-11 h-11 rounded-2xl bg-white border border-[#E9ECEF] shadow-sm flex items-center justify-center text-brand-700 transition-transform active:scale-95">
+              <svg fill="none" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L4 6V12C4 17.5 7.5 21.5 12 22C16.5 21.5 20 17.5 20 12V6L12 2Z" stroke="#00875A" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                <circle cx="12" cy="11.5" r="2.75" stroke="#00875A" stroke-width="2"></circle>
+                <path d="M12 8.75V7M12 16V14.25" stroke="#00875A" stroke-linecap="round" stroke-width="2"></path>
+              </svg>
+            </div>
+            <div class="flex flex-col">
+              <span class="font-bold text-[16px] tracking-tight text-ink-900 leading-none">EstateRadar</span>
+              <span class="text-[12px] font-medium text-ink-400 mt-1">Cadastral Telemetry Network</span>
+            </div>
+          </div>
+          
+          <div class="px-2.5 py-1 rounded-full bg-surface-container-high border border-outline-variant/30 text-[11px] font-mono font-semibold text-ink-700">
+            DGPS FIX
+          </div>
+        </div>
+
+        <!-- Hero Typography -->
+        <div class="mb-5">
+          <h1 class="text-[26px] font-bold tracking-tight text-ink-900 leading-[1.2]">
+            ${activeRoleTab === 'manager' 
+              ? (managerMode === 'login' ? 'Sign in to Agency Office' : 'Create Agency Workspace')
+              : (employeeMode === 'login' ? 'Connect Field Surveyor' : 'Request to Join Agency')}
+          </h1>
+          <p class="text-[13.5px] text-ink-500 font-normal mt-1 leading-relaxed">
+            ${activeRoleTab === 'manager' 
+              ? 'Manage your field roster, live radar map, and verified cadastral surveys.'
+              : 'Connect your device rover, stamp GPS coordinates, and submit verified property data.'}
+          </p>
+        </div>
+
+        <!-- Segment Selector (Agency Office / Field Surveyor) -->
+        <div class="w-full bg-[#EAECEF] p-1 rounded-2xl flex relative select-none mb-5" role="tablist">
           <button 
             type="button" 
-            class="role-segment-btn ${activeRoleTab === 'manager' ? 'active' : ''}" 
-            id="authRoleManagerBtn"
+            class="flex-1 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition-all duration-200 ${activeRoleTab === 'manager' ? 'text-ink-900 bg-white shadow-pill-switch border border-black/[0.04]' : 'text-ink-500 hover:text-ink-700'}" 
+            id="tabManager"
             role="tab"
             aria-selected="${activeRoleTab === 'manager'}"
           >
-            <span class="role-btn-icon">🏢</span>
-            <span>Agency Manager</span>
+            <span class="material-symbols-outlined text-[18px] ${activeRoleTab === 'manager' ? 'text-brand-600' : 'text-ink-400'}">domain</span>
+            <span>Agency Office</span>
           </button>
           
           <button 
             type="button" 
-            class="role-segment-btn ${activeRoleTab === 'employee' ? 'active' : ''}" 
-            id="authRoleEmployeeBtn"
+            class="flex-1 py-2.5 rounded-xl text-xs font-medium flex items-center justify-center space-x-1.5 transition-all duration-200 ${activeRoleTab === 'employee' ? 'text-ink-900 bg-white shadow-pill-switch border border-black/[0.04] font-semibold' : 'text-ink-500 hover:text-ink-700'}" 
+            id="tabSurveyor"
             role="tab"
             aria-selected="${activeRoleTab === 'employee'}"
           >
-            <span class="role-btn-icon">👷</span>
-            <span>Field Employee</span>
+            <span class="material-symbols-outlined text-[18px] ${activeRoleTab === 'employee' ? 'text-brand-600' : 'text-ink-400'}">explore</span>
+            <span>Field Surveyor</span>
           </button>
         </div>
 
-        ${activeRoleTab === 'manager' ? `
-          <!-- ================= MANAGER PANEL ================= -->
-          <div class="auth-sub-nav">
-            <button type="button" class="sub-nav-btn ${managerMode === 'login' ? 'active' : ''}" id="mgrSubTabLogin">
-              Sign In
-            </button>
-            <button type="button" class="sub-nav-btn ${managerMode === 'register' ? 'active' : ''}" id="mgrSubTabRegister">
-              + Create Agency
-            </button>
-          </div>
-
-          ${managerMode === 'login' ? `
-            <!-- MANAGER SIGN IN FORM -->
-            <form id="managerSignInForm" class="auth-form-flow" autocomplete="off">
-              <div class="form-input-block">
-                <label class="form-label" for="mgrCodeInput">Agency Code</label>
-                <input 
-                  type="text" 
-                  id="mgrCodeInput" 
-                  class="clean-input uppercase-text" 
-                  placeholder="e.g. SKYLINE" 
-                  maxlength="12"
-                  autocomplete="off"
-                  required 
-                />
-              </div>
-
-              <div class="form-input-block">
-                <label class="form-label" for="mgrEmailInput">Manager Email</label>
-                <input 
-                  type="email" 
-                  id="mgrEmailInput" 
-                  class="clean-input" 
-                  placeholder="name@agency.com" 
-                  autocomplete="off"
-                  required 
-                />
-              </div>
-
-              <div class="form-input-block">
-                <div class="form-label-row">
-                  <label class="form-label" for="mgrPasswordInput">Password</label>
-                  <button type="button" class="text-link-btn" id="openForgotPassBtn">Forgot password?</button>
+        <!-- Card Container -->
+        <div class="w-full bg-white rounded-[26px] p-5 border border-[#ECEEF2] shadow-subtle-card relative">
+          
+          ${activeRoleTab === 'manager' ? `
+            <!-- ================= AGENCY OFFICE PANEL ================= -->
+            ${managerMode === 'login' ? `
+              <!-- MANAGER SIGN IN FORM -->
+              <form class="space-y-4" id="managerSignInForm" autocomplete="off">
+                <!-- Workspace Code Field -->
+                <div class="group relative rounded-2xl bg-[#F8FAFC] border border-[#E8ECF1] focus-within:border-brand-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/10 transition-all p-3.5">
+                  <div class="flex justify-between items-center mb-1">
+                    <label class="text-[10px] font-bold text-ink-400 tracking-wider uppercase" for="mgrCodeInput">WORKSPACE IDENTIFIER</label>
+                    <span class="inline-flex items-center text-[10px] font-semibold text-brand-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/70">
+                      <span class="material-symbols-outlined text-[12px] mr-1 text-brand-600">check_circle</span>
+                      Agency Code
+                    </span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="material-symbols-outlined text-ink-400 text-[18px] mr-2">tag</span>
+                    <input 
+                      type="text" 
+                      id="mgrCodeInput" 
+                      class="w-full bg-transparent p-0 text-[14.5px] font-bold tracking-wider uppercase text-ink-900 border-none placeholder:text-ink-400 focus:outline-none" 
+                      placeholder="e.g. PRIME" 
+                      maxlength="12"
+                      required 
+                    />
+                  </div>
                 </div>
-                <input 
-                  type="password" 
-                  id="mgrPasswordInput" 
-                  class="clean-input" 
-                  placeholder="Enter your password" 
-                  autocomplete="current-password"
-                  required 
-                />
-              </div>
 
-              <div id="mgrSignInAlert" class="auth-alert-message hidden"></div>
-
-              <button type="submit" class="btn btn-primary btn-full submit-cta-btn" id="mgrSignInSubmitBtn">
-                Sign In as Manager
-              </button>
-
-              <div class="auth-bottom-switch-row">
-                <span class="switch-helper-text">Don't have an agency workspace yet?</span>
-                <button type="button" class="switch-action-btn" id="switchToCreateAgencyBtn">
-                  Create New Agency
-                </button>
-              </div>
-            </form>
-          ` : `
-            <!-- CREATE NEW AGENCY FORM -->
-            <form id="managerCreateAgencyForm" class="auth-form-flow" autocomplete="off">
-              <div class="form-input-block">
-                <label class="form-label" for="newAgencyName">Agency / Company Name</label>
-                <input 
-                  type="text" 
-                  id="newAgencyName" 
-                  class="clean-input" 
-                  placeholder="e.g. Skyline Real Estate" 
-                  autocomplete="off"
-                  required 
-                />
-              </div>
-
-              <div class="form-input-block">
-                <label class="form-label" for="newAgencyCode">Choose Unique Agency Code</label>
-                <input 
-                  type="text" 
-                  id="newAgencyCode" 
-                  class="clean-input uppercase-text" 
-                  placeholder="e.g. SKYLINE" 
-                  maxlength="8"
-                  autocomplete="off"
-                  required 
-                />
-                <span class="input-help-caption">Your field surveyors will use this short code to log in.</span>
-              </div>
-
-              <div class="form-input-block">
-                <label class="form-label" for="newManagerName">Manager Full Name</label>
-                <input 
-                  type="text" 
-                  id="newManagerName" 
-                  class="clean-input" 
-                  placeholder="e.g. Alex Morgan" 
-                  autocomplete="off"
-                  required 
-                />
-              </div>
-
-              <div class="form-input-block">
-                <label class="form-label" for="newManagerEmail">Manager Email</label>
-                <input 
-                  type="email" 
-                  id="newManagerEmail" 
-                  class="clean-input" 
-                  placeholder="manager@agency.com" 
-                  autocomplete="off"
-                  required 
-                />
-              </div>
-
-              <div class="form-input-block">
-                <label class="form-label" for="newManagerPassword">Manager Password</label>
-                <input 
-                  type="password" 
-                  id="newManagerPassword" 
-                  class="clean-input" 
-                  placeholder="Minimum 6 characters" 
-                  minlength="6"
-                  autocomplete="new-password"
-                  required 
-                />
-              </div>
-
-              <div id="mgrRegisterAlert" class="auth-alert-message hidden"></div>
-
-              <button type="submit" class="btn btn-primary btn-full submit-cta-btn" id="mgrCreateAgencySubmitBtn">
-                Create Agency & Launch
-              </button>
-
-              <div class="auth-bottom-switch-row">
-                <span class="switch-helper-text">Already have an agency?</span>
-                <button type="button" class="switch-action-btn" id="switchToMgrSignInBtn">
-                  Sign In here
-                </button>
-              </div>
-            </form>
-          `}
-        ` : `
-          <!-- ================= EMPLOYEE PANEL ================= -->
-          <div class="auth-sub-nav">
-            <button type="button" class="sub-nav-btn ${employeeMode === 'login' ? 'active' : ''}" id="empSubTabLogin">
-              Sign In
-            </button>
-            <button type="button" class="sub-nav-btn ${employeeMode === 'register' ? 'active' : ''}" id="empSubTabRegister">
-              Request to Join Agency
-            </button>
-          </div>
-
-          ${employeeMode === 'login' ? `
-            <!-- EMPLOYEE SIGN IN FORM -->
-            <form id="employeeSignInForm" class="auth-form-flow" autocomplete="off">
-              <div class="form-input-block">
-                <label class="form-label" for="empCodeInput">Agency Code</label>
-                <input 
-                  type="text" 
-                  id="empCodeInput" 
-                  class="clean-input uppercase-text" 
-                  placeholder="e.g. SKYLINE" 
-                  maxlength="12"
-                  autocomplete="off"
-                  required 
-                />
-              </div>
-
-              <div class="form-input-block">
-                <label class="form-label" for="empUsernameInput">Staff Username or Email</label>
-                <input 
-                  type="text" 
-                  id="empUsernameInput" 
-                  class="clean-input" 
-                  placeholder="e.g. hamza or staff@agency.com" 
-                  autocomplete="off"
-                  required 
-                />
-              </div>
-
-              <div class="form-input-block">
-                <div class="form-label-row">
-                  <label class="form-label" for="empPasswordInput">Password</label>
-                  <button type="button" class="text-link-btn" id="openForgotPassBtn2">Forgot password?</button>
+                <!-- Work Email Field -->
+                <div class="group relative rounded-2xl bg-[#F8FAFC] border border-[#E8ECF1] focus-within:border-brand-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/10 transition-all p-3.5">
+                  <label class="block text-[10px] font-bold text-ink-400 tracking-wider uppercase mb-1" for="mgrEmailInput">WORK EMAIL</label>
+                  <div class="flex items-center">
+                    <span class="material-symbols-outlined text-ink-400 text-[18px] mr-2">mail</span>
+                    <input 
+                      type="email" 
+                      id="mgrEmailInput" 
+                      class="w-full bg-transparent p-0 text-[14px] text-ink-900 font-medium border-none placeholder:text-ink-400 focus:outline-none" 
+                      placeholder="name@agency.com" 
+                      required 
+                    />
+                  </div>
                 </div>
-                <input 
-                  type="password" 
-                  id="empPasswordInput" 
-                  class="clean-input" 
-                  placeholder="Enter staff password" 
-                  autocomplete="current-password"
-                  required 
-                />
-              </div>
 
-              <div id="empSignInAlert" class="auth-alert-message hidden"></div>
+                <!-- Password Field -->
+                <div class="group relative rounded-2xl bg-[#F8FAFC] border border-[#E8ECF1] focus-within:border-brand-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/10 transition-all p-3.5">
+                  <div class="flex justify-between items-center mb-1">
+                    <label class="text-[10px] font-bold text-ink-400 tracking-wider uppercase" for="mgrPasswordInput">PASSWORD</label>
+                    <button type="button" class="text-ink-400 hover:text-ink-700 text-xs flex items-center" id="toggleMgrPassBtn">
+                      <span class="material-symbols-outlined text-[17px]">${showManagerPass ? 'visibility_off' : 'visibility'}</span>
+                    </button>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="material-symbols-outlined text-ink-400 text-[18px] mr-2">lock</span>
+                    <input 
+                      type="${showManagerPass ? 'text' : 'password'}" 
+                      id="mgrPasswordInput" 
+                      class="w-full bg-transparent p-0 text-[14px] text-ink-900 font-medium border-none placeholder:text-ink-400 focus:outline-none" 
+                      placeholder="Enter manager password" 
+                      required 
+                    />
+                  </div>
+                </div>
 
-              <button type="submit" class="btn btn-primary btn-full submit-cta-btn" id="empSignInSubmitBtn">
-                Sign In as Employee
-              </button>
+                <!-- Utilities: Remember & Forgot -->
+                <div class="flex items-center justify-between pt-0.5">
+                  <label class="flex items-center space-x-2 text-[12px] text-ink-600 select-none cursor-pointer">
+                    <input checked type="checkbox" class="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-ink-300">
+                    <span class="font-normal text-ink-600">Keep signed in</span>
+                  </label>
+                  <button type="button" class="text-[12px] font-semibold text-brand-600 hover:text-brand-700 hover:underline" id="openForgotPassBtn">
+                    Forgot password?
+                  </button>
+                </div>
 
-              <div class="auth-bottom-switch-row">
-                <span class="switch-helper-text">Not registered in your agency yet?</span>
-                <button type="button" class="switch-action-btn" id="switchToJoinRequestBtn">
-                  Request to Join Agency
+                <div id="mgrSignInAlert" class="auth-alert-message hidden"></div>
+
+                <!-- Continue to Workspace Button -->
+                <button type="submit" class="w-full h-12 mt-1 rounded-2xl bg-brand-600 hover:bg-brand-700 active:scale-[0.985] text-white font-semibold text-[14px] flex items-center justify-center space-x-2 shadow-button-tap transition-all" id="mgrSignInSubmitBtn">
+                  <span>Continue to Workspace</span>
+                  <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
                 </button>
-              </div>
-            </form>
+
+                <!-- Switch to Create Agency -->
+                <div class="text-center pt-2">
+                  <p class="text-[13px] text-ink-500">
+                    New agency? 
+                    <button type="button" class="font-semibold text-brand-600 hover:underline ml-1" id="switchToCreateAgencyBtn">
+                      Register a new agency
+                    </button>
+                  </p>
+                </div>
+              </form>
+            ` : `
+              <!-- CREATE NEW AGENCY FORM -->
+              <form class="space-y-3.5" id="managerCreateAgencyForm" autocomplete="off">
+                <div class="rounded-xl bg-brand-50/70 border border-brand-100 p-3 flex items-start space-x-2.5 mb-2">
+                  <span class="material-symbols-outlined text-brand-600 text-[18px] shrink-0 mt-0.5">corporate_fare</span>
+                  <p class="text-xs text-brand-900 leading-snug">
+                    Registering provisions an isolated agency tenant and generates your team’s unique Agency Code.
+                  </p>
+                </div>
+
+                <div class="group relative rounded-2xl bg-[#F8FAFC] border border-[#E8ECF1] focus-within:border-brand-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/10 transition-all p-3">
+                  <label class="block text-[10px] font-bold text-ink-400 tracking-wider uppercase mb-1" for="newAgencyName">AGENCY / COMPANY NAME</label>
+                  <input type="text" id="newAgencyName" class="w-full bg-transparent p-0 text-[14px] font-medium text-ink-900 border-none placeholder:text-ink-400 focus:outline-none" placeholder="e.g. Skyline Real Estate" required />
+                </div>
+
+                <div class="group relative rounded-2xl bg-[#F8FAFC] border border-[#E8ECF1] focus-within:border-brand-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/10 transition-all p-3">
+                  <div class="flex justify-between items-center mb-1">
+                    <label class="text-[10px] font-bold text-ink-400 tracking-wider uppercase" for="newAgencyCode">UNIQUE AGENCY CODE</label>
+                    <span class="text-[10px] text-ink-400 font-mono">4-8 CHARS</span>
+                  </div>
+                  <input type="text" id="newAgencyCode" class="w-full bg-transparent p-0 text-[14px] font-bold tracking-wider uppercase text-ink-900 border-none placeholder:text-ink-400 focus:outline-none" placeholder="e.g. SKYLINE" maxlength="8" required />
+                </div>
+
+                <div class="group relative rounded-2xl bg-[#F8FAFC] border border-[#E8ECF1] focus-within:border-brand-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/10 transition-all p-3">
+                  <label class="block text-[10px] font-bold text-ink-400 tracking-wider uppercase mb-1" for="newManagerName">MANAGER FULL NAME</label>
+                  <input type="text" id="newManagerName" class="w-full bg-transparent p-0 text-[14px] font-medium text-ink-900 border-none placeholder:text-ink-400 focus:outline-none" placeholder="e.g. Hamza Tariq" required />
+                </div>
+
+                <div class="group relative rounded-2xl bg-[#F8FAFC] border border-[#E8ECF1] focus-within:border-brand-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/10 transition-all p-3">
+                  <label class="block text-[10px] font-bold text-ink-400 tracking-wider uppercase mb-1" for="newManagerEmail">WORK EMAIL</label>
+                  <input type="email" id="newManagerEmail" class="w-full bg-transparent p-0 text-[14px] font-medium text-ink-900 border-none placeholder:text-ink-400 focus:outline-none" placeholder="manager@agency.com" required />
+                </div>
+
+                <div class="group relative rounded-2xl bg-[#F8FAFC] border border-[#E8ECF1] focus-within:border-brand-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/10 transition-all p-3">
+                  <label class="block text-[10px] font-bold text-ink-400 tracking-wider uppercase mb-1" for="newManagerPassword">MASTER PASSWORD</label>
+                  <input type="password" id="newManagerPassword" class="w-full bg-transparent p-0 text-[14px] font-medium text-ink-900 border-none placeholder:text-ink-400 focus:outline-none" placeholder="Minimum 6 characters" minlength="6" required />
+                </div>
+
+                <div id="mgrRegisterAlert" class="auth-alert-message hidden"></div>
+
+                <button type="submit" class="w-full h-12 mt-1 rounded-2xl bg-brand-600 hover:bg-brand-700 active:scale-[0.985] text-white font-semibold text-[14px] flex items-center justify-center space-x-2 shadow-button-tap transition-all" id="mgrCreateAgencySubmitBtn">
+                  <span>Create Agency & Launch Workspace</span>
+                  <span class="material-symbols-outlined text-[18px]">rocket_launch</span>
+                </button>
+
+                <div class="text-center pt-1">
+                  <p class="text-[13px] text-ink-500">
+                    Already have an agency? 
+                    <button type="button" class="font-semibold text-brand-600 hover:underline ml-1" id="switchToMgrSignInBtn">
+                      Sign In here
+                    </button>
+                  </p>
+                </div>
+              </form>
+            `}
           ` : `
-            <!-- EMPLOYEE REQUEST TO JOIN AGENCY FORM -->
-            <form id="employeeJoinRequestForm" class="auth-form-flow" autocomplete="off">
-              <div class="form-input-block">
-                <label class="form-label" for="joinAgencyCode">Agency Code to Join</label>
-                <input 
-                  type="text" 
-                  id="joinAgencyCode" 
-                  class="clean-input uppercase-text" 
-                  placeholder="e.g. SKYLINE" 
-                  maxlength="12"
-                  autocomplete="off"
-                  required 
-                />
-                <span class="input-help-caption">Ask your agency manager for this code.</span>
-              </div>
+            <!-- ================= FIELD SURVEYOR PANEL ================= -->
+            ${employeeMode === 'login' ? `
+              <!-- EMPLOYEE SIGN IN FORM -->
+              <form class="space-y-4" id="employeeSignInForm" autocomplete="off">
+                <!-- Contextual Note -->
+                <div class="rounded-2xl bg-brand-50/70 border border-brand-100 p-3 flex items-start space-x-2.5">
+                  <span class="material-symbols-outlined text-brand-600 text-[18px] shrink-0 mt-0.5">satellite_alt</span>
+                  <p class="text-xs text-brand-900 leading-snug">
+                    Connect directly to your team’s RTK base and cached boundary parcels for offline field work.
+                  </p>
+                </div>
 
-              <div class="form-input-block">
-                <label class="form-label" for="joinFullName">Your Full Name</label>
-                <input 
-                  type="text" 
-                  id="joinFullName" 
-                  class="clean-input" 
-                  placeholder="e.g. Hamza Tariq" 
-                  autocomplete="off"
-                  required 
-                />
-              </div>
+                <!-- Agency Code Field -->
+                <div class="group relative rounded-2xl bg-[#F8FAFC] border border-[#E8ECF1] focus-within:border-brand-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/10 transition-all p-3.5">
+                  <label class="block text-[10px] font-bold text-ink-400 tracking-wider uppercase mb-1" for="empCodeInput">ASSIGNED AGENCY CODE</label>
+                  <div class="flex items-center">
+                    <span class="material-symbols-outlined text-ink-400 text-[18px] mr-2">corporate_fare</span>
+                    <input 
+                      type="text" 
+                      id="empCodeInput" 
+                      class="w-full bg-transparent p-0 text-[14.5px] font-bold tracking-wider uppercase text-ink-900 border-none placeholder:text-ink-400 focus:outline-none" 
+                      placeholder="e.g. PRIME" 
+                      maxlength="12"
+                      required 
+                    />
+                  </div>
+                </div>
 
-              <div class="form-input-block">
-                <label class="form-label" for="joinUsername">Choose Username</label>
-                <input 
-                  type="text" 
-                  id="joinUsername" 
-                  class="clean-input" 
-                  placeholder="e.g. hamza" 
-                  autocomplete="off"
-                  required 
-                />
-              </div>
+                <!-- Username Field -->
+                <div class="group relative rounded-2xl bg-[#F8FAFC] border border-[#E8ECF1] focus-within:border-brand-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/10 transition-all p-3.5">
+                  <label class="block text-[10px] font-bold text-ink-400 tracking-wider uppercase mb-1" for="empUsernameInput">SURVEYOR HANDLE / USERNAME</label>
+                  <div class="flex items-center">
+                    <span class="material-symbols-outlined text-ink-400 text-[18px] mr-2">badge</span>
+                    <input 
+                      type="text" 
+                      id="empUsernameInput" 
+                      class="w-full bg-transparent p-0 text-[14px] text-ink-900 font-medium border-none placeholder:text-ink-400 focus:outline-none" 
+                      placeholder="e.g. hamza or john_surveyor" 
+                      required 
+                    />
+                  </div>
+                </div>
 
-              <div class="form-input-block">
-                <label class="form-label" for="joinPassword">Create Password</label>
-                <input 
-                  type="password" 
-                  id="joinPassword" 
-                  class="clean-input" 
-                  placeholder="Password for signing in" 
-                  minlength="4"
-                  autocomplete="new-password"
-                  required 
-                />
-              </div>
+                <!-- Passcode Field -->
+                <div class="group relative rounded-2xl bg-[#F8FAFC] border border-[#E8ECF1] focus-within:border-brand-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/10 transition-all p-3.5">
+                  <div class="flex justify-between items-center mb-1">
+                    <label class="text-[10px] font-bold text-ink-400 tracking-wider uppercase" for="empPasswordInput">FIELD PASSCODE</label>
+                    <button type="button" class="text-ink-400 hover:text-ink-700 text-xs flex items-center" id="toggleEmpPassBtn">
+                      <span class="material-symbols-outlined text-[17px]">${showEmployeePass ? 'visibility_off' : 'visibility'}</span>
+                    </button>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="material-symbols-outlined text-ink-400 text-[18px] mr-2">key</span>
+                    <input 
+                      type="${showEmployeePass ? 'text' : 'password'}" 
+                      id="empPasswordInput" 
+                      class="w-full bg-transparent p-0 text-[14px] text-ink-900 font-medium border-none placeholder:text-ink-400 focus:outline-none" 
+                      placeholder="Enter staff passcode" 
+                      required 
+                    />
+                  </div>
+                </div>
 
-              <div class="form-input-block">
-                <label class="form-label" for="joinPhone">Phone Number (Optional)</label>
-                <input 
-                  type="tel" 
-                  id="joinPhone" 
-                  class="clean-input" 
-                  placeholder="+92 300 1234567" 
-                  autocomplete="off"
-                />
-              </div>
+                <div id="empSignInAlert" class="auth-alert-message hidden"></div>
 
-              <div id="joinRequestAlert" class="auth-alert-message hidden"></div>
-
-              <button type="submit" class="btn btn-primary btn-full submit-cta-btn" id="joinRequestSubmitBtn">
-                Send Request to Manager
-              </button>
-
-              <div class="auth-bottom-switch-row">
-                <span class="switch-helper-text">Already accepted by manager?</span>
-                <button type="button" class="switch-action-btn" id="switchToEmpSignInBtn">
-                  Sign In here
+                <button type="submit" class="w-full h-12 mt-1 rounded-2xl bg-brand-600 hover:bg-brand-700 active:scale-[0.985] text-white font-semibold text-[14px] flex items-center justify-center space-x-2 shadow-button-tap transition-all" id="empSignInSubmitBtn">
+                  <span>Start Field Session</span>
+                  <span class="material-symbols-outlined text-[18px]">near_me</span>
                 </button>
-              </div>
-            </form>
+
+                <div class="text-center pt-1">
+                  <button type="button" class="text-xs font-semibold text-ink-500 hover:text-brand-600 transition-colors" id="switchToJoinRequestBtn">
+                    Not on this agency’s roster? <span class="text-brand-600 underline">Send request</span>
+                  </button>
+                </div>
+              </form>
+            ` : `
+              <!-- EMPLOYEE REQUEST TO JOIN AGENCY FORM -->
+              <form class="space-y-3.5" id="employeeJoinRequestForm" autocomplete="off">
+                <div class="rounded-xl bg-amber-50/80 border border-amber-200/70 p-3 flex items-start space-x-2.5 mb-2">
+                  <span class="material-symbols-outlined text-amber-700 text-[18px] shrink-0 mt-0.5">notification_important</span>
+                  <p class="text-xs text-amber-900 leading-snug">
+                    Your request will be submitted to the Agency Manager for approval. Once accepted, you can log in.
+                  </p>
+                </div>
+
+                <div class="group relative rounded-2xl bg-[#F8FAFC] border border-[#E8ECF1] focus-within:border-brand-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/10 transition-all p-3">
+                  <label class="block text-[10px] font-bold text-ink-400 tracking-wider uppercase mb-1" for="joinAgencyCode">AGENCY CODE TO JOIN</label>
+                  <input type="text" id="joinAgencyCode" class="w-full bg-transparent p-0 text-[14px] font-bold tracking-wider uppercase text-ink-900 border-none placeholder:text-ink-400 focus:outline-none" placeholder="e.g. PRIME" maxlength="12" required />
+                </div>
+
+                <div class="group relative rounded-2xl bg-[#F8FAFC] border border-[#E8ECF1] focus-within:border-brand-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/10 transition-all p-3">
+                  <label class="block text-[10px] font-bold text-ink-400 tracking-wider uppercase mb-1" for="joinFullName">YOUR FULL NAME</label>
+                  <input type="text" id="joinFullName" class="w-full bg-transparent p-0 text-[14px] font-medium text-ink-900 border-none placeholder:text-ink-400 focus:outline-none" placeholder="e.g. Hamza Tariq" required />
+                </div>
+
+                <div class="group relative rounded-2xl bg-[#F8FAFC] border border-[#E8ECF1] focus-within:border-brand-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/10 transition-all p-3">
+                  <label class="block text-[10px] font-bold text-ink-400 tracking-wider uppercase mb-1" for="joinUsername">CHOOSE USERNAME / CALLSIGN</label>
+                  <input type="text" id="joinUsername" class="w-full bg-transparent p-0 text-[14px] font-medium text-ink-900 border-none placeholder:text-ink-400 focus:outline-none" placeholder="e.g. hamza_field" required />
+                </div>
+
+                <div class="group relative rounded-2xl bg-[#F8FAFC] border border-[#E8ECF1] focus-within:border-brand-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/10 transition-all p-3">
+                  <label class="block text-[10px] font-bold text-ink-400 tracking-wider uppercase mb-1" for="joinPassword">CREATE FIELD PASSCODE</label>
+                  <input type="password" id="joinPassword" class="w-full bg-transparent p-0 text-[14px] font-medium text-ink-900 border-none placeholder:text-ink-400 focus:outline-none" placeholder="Minimum 4 characters" minlength="4" required />
+                </div>
+
+                <div class="group relative rounded-2xl bg-[#F8FAFC] border border-[#E8ECF1] focus-within:border-brand-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/10 transition-all p-3">
+                  <label class="block text-[10px] font-bold text-ink-400 tracking-wider uppercase mb-1" for="joinPhone">CONTACT PHONE (OPTIONAL)</label>
+                  <input type="tel" id="joinPhone" class="w-full bg-transparent p-0 text-[14px] font-medium text-ink-900 border-none placeholder:text-ink-400 focus:outline-none" placeholder="+92 300 1234567" />
+                </div>
+
+                <div id="joinRequestAlert" class="auth-alert-message hidden"></div>
+
+                <button type="submit" class="w-full h-12 mt-1 rounded-2xl bg-brand-600 hover:bg-brand-700 active:scale-[0.985] text-white font-semibold text-[14px] flex items-center justify-center space-x-2 shadow-button-tap transition-all" id="joinRequestSubmitBtn">
+                  <span>Submit Join Request to Agency</span>
+                  <span class="material-symbols-outlined text-[18px]">send</span>
+                </button>
+
+                <div class="text-center pt-1">
+                  <button type="button" class="text-xs font-semibold text-ink-500 hover:text-brand-600 transition-colors" id="switchToEmpSignInBtn">
+                    Already approved by manager? <span class="text-brand-600 underline">Sign In here</span>
+                  </button>
+                </div>
+              </form>
+            `}
           `}
-        `}
 
-      </div>
+        </div>
 
-      <!-- Clean Password Reset Modal -->
+        <!-- Footer Cadastral Shield Notice -->
+        <div class="mt-6 flex items-center justify-center space-x-2 text-ink-400 text-xs">
+          <span class="material-symbols-outlined text-[16px] text-brand-600">verified</span>
+          <span>ISO 27001 Multi-Tenant Cryptographic Isolation</span>
+        </div>
+
+      </main>
+
+      <!-- Password Reset Modal -->
       <div class="auth-modal-backdrop ${resetModalOpen ? '' : 'hidden'}" id="resetPasswordModalBackdrop">
         <div class="auth-modal-box animate-slide-up">
           <div class="modal-title-row">
-            <h3>Reset Account Password</h3>
+            <h3 class="font-bold text-ink-900">Reset Account Password</h3>
             <button type="button" class="modal-close-cross" id="closeResetModalBtn">✕</button>
           </div>
-          <p class="modal-desc-text">
-            Enter your Agency Code and registered Email or Username to reset your password.
+          <p class="modal-desc-text text-sm text-ink-500 mt-1 mb-4">
+            Enter your Agency Code and registered email or username to update your password.
           </p>
 
-          <form id="passwordResetForm" class="auth-form-flow">
-            <div class="form-input-block">
-              <label class="form-label" for="resetAgencyCode">Agency Code</label>
-              <input type="text" id="resetAgencyCode" class="clean-input uppercase-text" placeholder="e.g. SKYLINE" required />
+          <form id="passwordResetForm" class="space-y-3">
+            <div class="group relative rounded-xl bg-[#F8FAFC] border border-[#E8ECF1] p-3">
+              <label class="block text-[10px] font-bold text-ink-400 uppercase mb-1" for="resetAgencyCode">AGENCY CODE</label>
+              <input type="text" id="resetAgencyCode" class="w-full bg-transparent p-0 text-sm font-bold uppercase text-ink-900 border-none focus:outline-none" placeholder="e.g. PRIME" required />
             </div>
 
-            <div class="form-input-block">
-              <label class="form-label" for="resetEmailOrUser">Email or Username</label>
-              <input type="text" id="resetEmailOrUser" class="clean-input" placeholder="Registered email or username" required />
+            <div class="group relative rounded-xl bg-[#F8FAFC] border border-[#E8ECF1] p-3">
+              <label class="block text-[10px] font-bold text-ink-400 uppercase mb-1" for="resetEmailOrUser">EMAIL OR USERNAME</label>
+              <input type="text" id="resetEmailOrUser" class="w-full bg-transparent p-0 text-sm text-ink-900 border-none focus:outline-none" placeholder="Registered email or username" required />
             </div>
 
-            <div class="form-input-block">
-              <label class="form-label" for="resetNewPass">New Password</label>
-              <input type="password" id="resetNewPass" class="clean-input" placeholder="Minimum 6 characters" minlength="6" required />
+            <div class="group relative rounded-xl bg-[#F8FAFC] border border-[#E8ECF1] p-3">
+              <label class="block text-[10px] font-bold text-ink-400 uppercase mb-1" for="resetNewPass">NEW PASSWORD</label>
+              <input type="password" id="resetNewPass" class="w-full bg-transparent p-0 text-sm text-ink-900 border-none focus:outline-none" placeholder="Minimum 6 characters" minlength="6" required />
             </div>
 
             <div id="resetStatusAlert" class="auth-alert-message hidden"></div>
 
-            <div class="modal-btn-actions">
-              <button type="submit" class="btn btn-primary btn-full">
+            <div class="modal-btn-actions pt-2 space-y-2">
+              <button type="submit" class="w-full h-11 rounded-xl bg-brand-600 text-white font-semibold text-sm">
                 Save New Password
               </button>
-              <button type="button" class="btn btn-secondary btn-full" id="cancelResetModalBtn" style="margin-top: 8px;">
+              <button type="button" class="w-full h-11 rounded-xl bg-surface-container text-ink-700 font-medium text-sm" id="cancelResetModalBtn">
                 Cancel
               </button>
             </div>
@@ -395,42 +425,59 @@ export function renderLoginScreen() {
 }
 
 export function bindLoginScreenEvents() {
-  // 1. Role Toggle (Manager vs Employee)
-  const roleMgrBtn = document.getElementById('authRoleManagerBtn');
-  const roleEmpBtn = document.getElementById('authRoleEmployeeBtn');
+  // Theme Toggle in Header
+  const themeBtn = document.getElementById('authThemeToggleBtn');
+  if (themeBtn) {
+    themeBtn.onclick = () => {
+      state.toggleTheme();
+    };
+  }
 
-  if (roleMgrBtn) {
-    roleMgrBtn.onclick = () => {
+  // 1. Role Toggle (Agency Office vs Field Surveyor)
+  const tabMgr = document.getElementById('tabManager');
+  const tabSurv = document.getElementById('tabSurveyor');
+
+  if (tabMgr) {
+    tabMgr.onclick = () => {
       activeRoleTab = 'manager';
       window.dispatchEvent(new CustomEvent('re-render-request'));
     };
   }
 
-  if (roleEmpBtn) {
-    roleEmpBtn.onclick = () => {
+  if (tabSurv) {
+    tabSurv.onclick = () => {
       activeRoleTab = 'employee';
       window.dispatchEvent(new CustomEvent('re-render-request'));
     };
   }
 
+  // Password visibility toggles
+  const toggleMgrPass = document.getElementById('toggleMgrPassBtn');
+  if (toggleMgrPass) {
+    toggleMgrPass.onclick = () => {
+      showManagerPass = !showManagerPass;
+      const passInput = document.getElementById('mgrPasswordInput');
+      if (passInput) passInput.type = showManagerPass ? 'text' : 'password';
+      const icon = toggleMgrPass.querySelector('.material-symbols-outlined');
+      if (icon) icon.textContent = showManagerPass ? 'visibility_off' : 'visibility';
+    };
+  }
+
+  const toggleEmpPass = document.getElementById('toggleEmpPassBtn');
+  if (toggleEmpPass) {
+    toggleEmpPass.onclick = () => {
+      showEmployeePass = !showEmployeePass;
+      const passInput = document.getElementById('empPasswordInput');
+      if (passInput) passInput.type = showEmployeePass ? 'text' : 'password';
+      const icon = toggleEmpPass.querySelector('.material-symbols-outlined');
+      if (icon) icon.textContent = showEmployeePass ? 'visibility_off' : 'visibility';
+    };
+  }
+
   // 2. Manager Sub-tabs
-  const mgrTabLogin = document.getElementById('mgrSubTabLogin');
-  const mgrTabReg = document.getElementById('mgrSubTabRegister');
   const switchCreate = document.getElementById('switchToCreateAgencyBtn');
   const switchMgrSign = document.getElementById('switchToMgrSignInBtn');
 
-  if (mgrTabLogin) {
-    mgrTabLogin.onclick = () => {
-      managerMode = 'login';
-      window.dispatchEvent(new CustomEvent('re-render-request'));
-    };
-  }
-  if (mgrTabReg) {
-    mgrTabReg.onclick = () => {
-      managerMode = 'register';
-      window.dispatchEvent(new CustomEvent('re-render-request'));
-    };
-  }
   if (switchCreate) {
     switchCreate.onclick = () => {
       managerMode = 'register';
@@ -445,23 +492,9 @@ export function bindLoginScreenEvents() {
   }
 
   // 3. Employee Sub-tabs
-  const empTabLogin = document.getElementById('empSubTabLogin');
-  const empTabReg = document.getElementById('empSubTabRegister');
   const switchJoin = document.getElementById('switchToJoinRequestBtn');
   const switchEmpSign = document.getElementById('switchToEmpSignInBtn');
 
-  if (empTabLogin) {
-    empTabLogin.onclick = () => {
-      employeeMode = 'login';
-      window.dispatchEvent(new CustomEvent('re-render-request'));
-    };
-  }
-  if (empTabReg) {
-    empTabReg.onclick = () => {
-      employeeMode = 'register';
-      window.dispatchEvent(new CustomEvent('re-render-request'));
-    };
-  }
   if (switchJoin) {
     switchJoin.onclick = () => {
       employeeMode = 'register';
@@ -548,7 +581,7 @@ export function bindLoginScreenEvents() {
 
       if (!pass) {
         if (alertBox) {
-          alertBox.innerText = 'Password is required to sign in.';
+          alertBox.innerText = 'Please enter your password.';
           alertBox.className = 'auth-alert-message error';
           alertBox.classList.remove('hidden');
         }
@@ -558,7 +591,7 @@ export function bindLoginScreenEvents() {
       if (submitBtn) submitBtn.disabled = true;
       if (alertBox) alertBox.classList.add('hidden');
 
-      const res = await state.loginAsSurveyor(code, user, pass);
+      const res = await state.loginAsEmployee(code, user, pass);
       if (submitBtn) submitBtn.disabled = false;
 
       if (!res.success) {
@@ -573,15 +606,15 @@ export function bindLoginScreenEvents() {
     };
   }
 
-  // 7. Employee Request to Join Agency Submission
-  const empJoinForm = document.getElementById('employeeJoinRequestForm');
-  if (empJoinForm) {
-    empJoinForm.onsubmit = (e) => {
+  // 7. Employee Join Request Form Submission
+  const joinForm = document.getElementById('employeeJoinRequestForm');
+  if (joinForm) {
+    joinForm.onsubmit = async (e) => {
       e.preventDefault();
       const code = document.getElementById('joinAgencyCode').value.trim();
       const name = document.getElementById('joinFullName').value.trim();
       const username = document.getElementById('joinUsername').value.trim();
-      const password = document.getElementById('joinPassword').value;
+      const pass = document.getElementById('joinPassword').value;
       const phone = document.getElementById('joinPhone').value.trim();
       const alertBox = document.getElementById('joinRequestAlert');
       const submitBtn = document.getElementById('joinRequestSubmitBtn');
@@ -589,7 +622,7 @@ export function bindLoginScreenEvents() {
       if (submitBtn) submitBtn.disabled = true;
       if (alertBox) alertBox.classList.add('hidden');
 
-      const res = state.requestJoinAgency(code, { name, username, password, phone });
+      const res = await state.requestJoinAgency(code, name, username, pass, phone);
       if (submitBtn) submitBtn.disabled = false;
 
       if (!res.success) {
@@ -600,61 +633,58 @@ export function bindLoginScreenEvents() {
         }
       } else {
         if (alertBox) {
-          alertBox.innerText = '✓ ' + res.message;
+          alertBox.innerText = '✓ Join request sent successfully! Your Agency Manager has been notified. Once approved, you can sign in.';
           alertBox.className = 'auth-alert-message success';
           alertBox.classList.remove('hidden');
         }
-        empJoinForm.reset();
+        setTimeout(() => {
+          employeeMode = 'login';
+          window.dispatchEvent(new CustomEvent('re-render-request'));
+        }, 2200);
       }
     };
   }
 
-  // 8. Password Reset Modal Triggers
-  const openReset1 = document.getElementById('openForgotPassBtn');
-  const openReset2 = document.getElementById('openForgotPassBtn2');
-  const closeReset = document.getElementById('closeResetModalBtn');
-  const cancelReset = document.getElementById('cancelResetModalBtn');
+  // 8. Forgot Password Flow
+  const openResetBtn = document.getElementById('openForgotPassBtn');
+  const closeResetBtn = document.getElementById('closeResetModalBtn');
+  const cancelResetBtn = document.getElementById('cancelResetModalBtn');
+  const resetBackdrop = document.getElementById('resetPasswordModalBackdrop');
   const resetForm = document.getElementById('passwordResetForm');
 
-  const toggleResetModal = (open) => {
-    resetModalOpen = open;
-    const backdrop = document.getElementById('resetPasswordModalBackdrop');
-    if (backdrop) {
-      backdrop.classList.toggle('hidden', !open);
-    }
+  const openReset = () => {
+    resetModalOpen = true;
+    if (resetBackdrop) resetBackdrop.classList.remove('hidden');
+  };
+  const closeReset = () => {
+    resetModalOpen = false;
+    if (resetBackdrop) resetBackdrop.classList.add('hidden');
   };
 
-  if (openReset1) openReset1.onclick = () => toggleResetModal(true);
-  if (openReset2) openReset2.onclick = () => toggleResetModal(true);
-  if (closeReset) closeReset.onclick = () => toggleResetModal(false);
-  if (cancelReset) cancelReset.onclick = () => toggleResetModal(false);
+  if (openResetBtn) openResetBtn.onclick = openReset;
+  if (closeResetBtn) closeResetBtn.onclick = closeReset;
+  if (cancelResetBtn) cancelResetBtn.onclick = closeReset;
 
   if (resetForm) {
-    resetForm.onsubmit = (e) => {
+    resetForm.onsubmit = async (e) => {
       e.preventDefault();
       const code = document.getElementById('resetAgencyCode').value.trim();
-      const target = document.getElementById('resetEmailOrUser').value.trim();
+      const userOrEmail = document.getElementById('resetEmailOrUser').value.trim();
       const newPass = document.getElementById('resetNewPass').value;
-      const statusBox = document.getElementById('resetStatusAlert');
+      const alertBox = document.getElementById('resetStatusAlert');
 
-      const res = storage.resetPassword(code, target, newPass);
-      if (!res.success) {
-        if (statusBox) {
-          statusBox.innerText = res.message;
-          statusBox.className = 'auth-alert-message error';
-          statusBox.classList.remove('hidden');
+      const res = await state.resetUserPassword(code, userOrEmail, newPass);
+      if (alertBox) {
+        if (res.success) {
+          alertBox.innerText = '✓ Password reset successfully! You can now sign in.';
+          alertBox.className = 'auth-alert-message success';
+          alertBox.classList.remove('hidden');
+          setTimeout(() => closeReset(), 1800);
+        } else {
+          alertBox.innerText = res.error || 'Account not found.';
+          alertBox.className = 'auth-alert-message error';
+          alertBox.classList.remove('hidden');
         }
-      } else {
-        if (statusBox) {
-          statusBox.innerText = '✓ ' + res.message;
-          statusBox.className = 'auth-alert-message success';
-          statusBox.classList.remove('hidden');
-        }
-        setTimeout(() => {
-          toggleResetModal(false);
-          resetForm.reset();
-          if (statusBox) statusBox.classList.add('hidden');
-        }, 1200);
       }
     };
   }

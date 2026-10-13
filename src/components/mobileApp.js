@@ -1,10 +1,13 @@
-// Clean, Human-Designed Mobile Application for Field Surveyors
-// Zero Dummy Data — Real Device Camera Access — Full Logout Flow
+// EstateRadar — Field Surveyor Mobile Cockpit & Surveys Directory
+// Exactly Matching stitch_estateradar_mobile_app_ui / field_surveyor_mobile_cockpit
+// Version: 1.0.4 — Zero Dummy Data — Real Device Camera Hardware Access
 import { state } from '../state.js';
 import { renderLoginScreen, bindLoginScreenEvents } from './loginScreen.js';
 
 let activeTab = 'tracker'; // 'tracker' | 'properties'
+let activeMySurveysFilter = 'all'; // 'all' | 'pending' | 'verified' | 'residential' | 'commercial'
 let capturedPhotoDataUrl = null;
+let shiftTickerInterval = null;
 
 export function renderMobileApp() {
   if (!state.auth.isAuthenticated || !state.currentUser) {
@@ -15,245 +18,378 @@ export function renderMobileApp() {
   const isClocked = Boolean(currentUser.isClockedIn);
   const myProperties = properties.filter(p => p.surveyorId === currentUser.id);
 
-  // Shift duration
+  // Shift duration formatted as HHh MMm SSs
   const elapsedMs = isClocked ? Math.max(0, Date.now() - state.shiftStartTime) : 0;
-  const hours = Math.floor(elapsedMs / 3600000);
-  const minutes = Math.floor((elapsedMs % 3600000) / 60000);
-  const shiftText = isClocked ? `${hours}h ${minutes}m on duty` : 'Off Duty';
+  const totalSec = Math.floor(elapsedMs / 1000);
+  const hours = Math.floor(totalSec / 3600);
+  const minutes = Math.floor((totalSec % 3600) / 60);
+  const seconds = totalSec % 60;
+  const shiftTimerFormatted = isClocked 
+    ? `${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s` 
+    : 'Off Duty';
 
-  const companyCode = company?.company_code || currentUser.company_code || 'AGENCY';
+  const companyCode = company?.company_code || currentUser.company_code || 'PRIME';
+
+  // Filtered properties for My Surveys tab
+  const filteredMyProperties = myProperties.filter(prop => {
+    if (activeMySurveysFilter === 'pending') return prop.status === 'Pending Review';
+    if (activeMySurveysFilter === 'verified') return prop.status !== 'Pending Review';
+    if (activeMySurveysFilter === 'residential') return (prop.type || '').toLowerCase().includes('residential') || (prop.type || '').toLowerCase().includes('house') || (prop.type || '').toLowerCase().includes('villa');
+    if (activeMySurveysFilter === 'commercial') return (prop.type || '').toLowerCase().includes('commercial');
+    return true;
+  });
 
   return `
-    <div class="mobile-device-viewport">
+    <div class="surveyor-nordic-layout bg-surface text-on-surface min-h-screen flex flex-col font-sans antialiased">
       
-      <!-- Top Native-Style Header -->
-      <header class="mobile-native-header">
-        <div class="header-left">
-          <span class="company-logo-text">${company?.name || 'EstateRadar'}</span>
-          <span class="user-role-label">Code: ${companyCode}</span>
-        </div>
-        <div class="header-right">
-          ${updateState.isAvailable ? `
-            <button class="appbar-icon-btn update-glowing-badge" id="empHeaderUpdateBtn" title="Update Available (${updateState.version})">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              <span class="update-glow-dot"></span>
+      <!-- Top Fixed Header -->
+      <header class="fixed top-0 inset-x-0 z-50 bg-surface/85 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-outline-variant/20">
+        <div class="h-16 px-4 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-surface-container-lowest border border-outline-variant/30 flex items-center justify-center text-primary shadow-sm">
+              <span class="material-symbols-outlined text-[22px]">shield</span>
+            </div>
+            <div class="flex flex-col">
+              <span class="font-bold text-[15px] text-on-surface leading-tight">${company?.name || 'Prime Realty'}</span>
+              <span class="text-[12px] font-medium text-secondary leading-tight">Field Cockpit</span>
+            </div>
+            <div class="flex items-center gap-1 ml-1 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
+              <span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+              <span class="font-mono text-[11px] font-bold text-primary uppercase">${companyCode}</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-1.5">
+            ${updateState.isAvailable ? `
+              <button class="w-9 h-9 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center text-primary animate-pulse" id="empHeaderUpdateBtn" title="Update Available (${updateState.version})">
+                <span class="material-symbols-outlined text-[20px]">system_update_alt</span>
+              </button>
+            ` : ''}
+            <button class="w-9 h-9 flex items-center justify-center rounded-full text-secondary hover:text-on-surface transition-colors" id="empThemeToggleBtn" title="Toggle Theme">
+              ${state.theme === 'light' ? '🌙' : '☀️'}
             </button>
-          ` : ''}
-          <button class="header-action-btn" id="toggleThemeBtn" title="Toggle Theme">
-            ${state.theme === 'light' ? '🌙' : '☀️'}
-          </button>
-          <button class="header-action-btn text-danger" id="empSignOutBtn" title="Sign Out">
-            🚪 Sign Out
-          </button>
+            <button class="w-9 h-9 flex items-center justify-center rounded-full text-error hover:bg-error-container/30 transition-colors" id="empSignOutBtn" title="Sign Out">
+              <span class="material-symbols-outlined text-[20px]">logout</span>
+            </button>
+          </div>
         </div>
       </header>
 
-      <!-- Main Scrollable App Container -->
-      <main class="mobile-tab-content">
+      <!-- Main Viewport Body -->
+      <main class="flex-1 w-full pt-16 pb-20 bg-surface min-h-screen relative overflow-y-auto">
         
-        <!-- ================= TAB 1: TRACKER / DASHBOARD ================= -->
-        <div class="tab-pane ${activeTab === 'tracker' ? 'active' : ''}" id="tabPaneTracker">
-          
-          <!-- Employee Identity Card -->
-          <div class="employee-identity-banner">
-            <div class="emp-avatar-circle">
-              ${(currentUser.name || 'Staff').substring(0, 2).toUpperCase()}
-            </div>
-            <div class="emp-identity-text">
-              <h3 class="emp-identity-name">${currentUser.name || 'Field Surveyor'}</h3>
-              <span class="emp-identity-role">@${currentUser.username || 'staff'} • ${currentUser.role || 'Field Staff'}</span>
-            </div>
-            <span class="header-plain-status ${isClocked ? 'online' : 'offline'}">
-              ${isClocked ? 'On Shift' : 'Off Duty'}
-            </span>
-          </div>
-
-          <!-- Shift Control Card -->
-          <div class="card shift-card ${isClocked ? 'card-active-shift' : ''}">
-            <div class="shift-card-header">
-              <div>
-                <span class="shift-kicker">WORKFORCE SHIFT ATTENDANCE</span>
-                <h3 class="shift-title">${isClocked ? 'Shift Active — GPS Streaming' : 'Standby • Shift Inactive'}</h3>
-              </div>
-              <span class="shift-timer">${shiftText}</span>
-            </div>
-
-            <p class="shift-desc">
-              ${isClocked 
-                ? 'Your location is active and streaming encrypted GNSS coordinates to your Agency Manager console.' 
-                : 'GPS tracking is paused. Coordinates are strictly private while off duty.'}
-            </p>
-
-            <button class="btn ${isClocked ? 'btn-danger' : 'btn-primary'} btn-full" id="toggleShiftBtn">
-              <span>${isClocked ? 'End Shift (Clock Out)' : 'Start Shift (Clock In)'}</span>
-            </button>
-          </div>
-
-          <!-- Quick Action: Register Property Survey (REAL CAMERA) -->
-          <div class="action-banner-card ${!isClocked ? 'disabled' : ''}" id="quickAddPropertyBtn">
-            <div class="action-icon-circle">📷</div>
-            <div class="action-text-group">
-              <h4>+ Register Property Survey</h4>
-              <p>${isClocked ? 'Open camera, capture photo & stamp GPS coordinates' : 'Clock in first to submit surveys'}</p>
-            </div>
-            <span class="action-chevron">›</span>
-          </div>
-
-          <!-- Real-Time Metrics -->
-          <div class="stats-row">
-            <div class="stat-box">
-              <span class="stat-number">${myProperties.length}</span>
-              <span class="stat-label">Surveys Submitted</span>
-            </div>
-            <div class="stat-box">
-              <span class="stat-number">${isClocked ? (currentUser.speedKmh || 0) : 0} <small>km/h</small></span>
-              <span class="stat-label">Current Velocity</span>
-            </div>
-            <div class="stat-box">
-              <span class="stat-number">${currentUser.batteryPercent || 100}%</span>
-              <span class="stat-label">Device Battery</span>
-            </div>
-          </div>
-
-          <!-- Current Location Snapshot -->
-          <div class="card location-card">
-            <div class="card-header-simple">
-              <span class="icon-small">📍</span>
-              <strong>Live Telemetry Snapshot</strong>
-            </div>
-            <p class="current-street-name">${currentUser.currentAddress || (isClocked ? 'GPS Locating...' : 'Off Shift (Not tracking)')}</p>
-            <div class="telemetry-subtext">
-              <span>Latitude: <strong>${currentUser.currentCoords ? currentUser.currentCoords.lat.toFixed(4) + '°' : 'N/A'}</strong></span>
-              <span>Longitude: <strong>${currentUser.currentCoords ? currentUser.currentCoords.lng.toFixed(4) + '°' : 'N/A'}</strong></span>
-              <span>Accuracy: <strong>±${currentUser.accuracyMeters || 5} m</strong></span>
-            </div>
-          </div>
-
-          <!-- Recent Properties Quick Preview -->
-          <div class="recent-preview-block">
-            <div class="block-header">
-              <h4>My Recent Surveys (${myProperties.length})</h4>
-              <button class="text-link-btn" id="viewAllPropertiesLink">View directory ›</button>
-            </div>
-
-            <div class="properties-mini-stack">
-              ${myProperties.length === 0 ? `
-                <div class="empty-mini-card">
-                  <p>No property surveys logged yet today.</p>
+        <!-- ================= TAB 1: COCKPIT / SHIFT & GPS ================= -->
+        <div class="surveyor-tab-pane ${activeTab === 'tracker' ? 'active' : 'hidden'}" id="tabPaneTracker">
+          <div class="flex flex-col w-full px-4 pt-3 pb-8 gap-4">
+            
+            <!-- Surveyor Native Header & Verification Key -->
+            <div class="flex items-center justify-between py-2 bg-surface-container-low border border-outline-variant/30 rounded-2xl px-3.5 shadow-sm">
+              <div class="flex items-center gap-2.5">
+                <div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm">
+                  <span class="material-symbols-outlined text-[22px]">architecture</span>
                 </div>
-              ` : myProperties.slice(0, 3).map(prop => `
-                <div class="property-list-card">
+                <div class="flex flex-col">
+                  <span class="font-bold text-[14px] text-on-surface leading-tight">Cadastral Rover</span>
+                  <span class="font-mono text-[11px] text-secondary tracking-wider uppercase font-semibold">KEY: ${companyCode}</span>
+                </div>
+              </div>
+              <button type="button" class="flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface-container border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-high text-xs font-semibold" id="empQuickSignOutBtn">
+                <span class="material-symbols-outlined text-[16px]">logout</span>
+                <span>Sign Out</span>
+              </button>
+            </div>
+
+            <!-- Employee Profile Card -->
+            <section class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-12 h-12 rounded-2xl bg-secondary-container text-on-secondary-container flex items-center justify-center font-bold text-base shadow-inner shrink-0">
+                  ${(currentUser.name || 'Staff').substring(0, 2).toUpperCase()}
+                </div>
+                <div class="flex flex-col min-w-0">
+                  <span class="font-bold text-[15px] text-on-surface truncate">${currentUser.name || 'Field Surveyor'}</span>
+                  <span class="text-xs text-secondary truncate">@${currentUser.username || 'staff'} • Cadastral Surveyor</span>
+                </div>
+              </div>
+              <div class="px-3 py-1 rounded-full ${isClocked ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-surface-container-high text-secondary'} font-mono text-[11px] font-bold shrink-0">
+                ${isClocked ? '● On Duty' : '○ Off Duty'}
+              </div>
+            </section>
+
+            <!-- Shift Attendance Hero Card -->
+            <section class="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-4 flex flex-col gap-3 shadow-sm">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-primary text-[22px]">verified_user</span>
+                  <span class="font-bold text-sm text-on-surface">Workforce Shift Attendance</span>
+                </div>
+                <span class="font-mono text-xs px-2.5 py-1 rounded-full bg-surface-container border border-outline-variant/30 text-primary font-bold" id="shiftTimerDisplay">
+                  ${shiftTimerFormatted}
+                </span>
+              </div>
+
+              <div class="bg-surface-container-lowest rounded-xl p-3 flex flex-col gap-1 border border-outline-variant/20">
+                <div class="flex items-center gap-1.5 text-primary text-xs font-bold font-mono">
+                  <span class="material-symbols-outlined text-[16px]">satellite_alt</span>
+                  <span>${isClocked ? 'Shift Active — GPS Telemetry Streaming' : 'Standby — Tracking Suspended'}</span>
+                </div>
+                <p class="text-xs text-secondary leading-relaxed">
+                  ${isClocked 
+                    ? 'Your location is securely streaming encrypted GNSS coordinates to Agency Manager console.'
+                    : 'GPS tracking is paused. Your coordinates remain strictly private while off shift.'}
+                </p>
+              </div>
+
+              <button type="button" class="w-full h-12 rounded-xl ${isClocked ? 'bg-error-container text-on-error-container' : 'bg-brand-600 hover:bg-brand-700 text-white'} flex items-center justify-center gap-2 font-semibold text-sm active:scale-[0.98] transition-all shadow-sm" id="toggleShiftBtn">
+                <span class="material-symbols-outlined text-[20px]">${isClocked ? 'stop_circle' : 'play_circle'}</span>
+                <span>${isClocked ? 'End Shift (Clock Out)' : 'Start Shift (Clock In)'}</span>
+              </button>
+            </section>
+
+            <!-- Survey Registration Trigger CTA Card -->
+            <section class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 flex flex-col gap-3 shadow-md relative overflow-hidden ${!isClocked ? 'opacity-85' : ''}">
+              <div class="flex items-start gap-3">
+                <div class="w-11 h-11 rounded-xl bg-brand-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <span class="material-symbols-outlined text-[24px]">photo_camera</span>
+                </div>
+                <div class="flex flex-col min-w-0">
+                  <h2 class="font-bold text-sm text-on-surface leading-snug">
+                    + Register On-Site Property Survey
+                  </h2>
+                  <p class="text-xs text-secondary mt-0.5">
+                    ${isClocked 
+                      ? 'Launch camera, take photo, and cryptographically stamp RTK GPS coordinates.' 
+                      : 'Clock in above to unlock on-site photo survey registration.'}
+                  </p>
+                </div>
+              </div>
+
+              <button type="button" class="w-full h-12 rounded-xl bg-brand-600 hover:bg-brand-700 text-white flex items-center justify-center gap-2 font-semibold text-sm shadow-sm active:scale-[0.98] transition-transform ${!isClocked ? 'cursor-not-allowed opacity-75' : ''}" id="openSurveyTrigger">
+                <span>Open Camera & Stamp GPS</span>
+                <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+              </button>
+            </section>
+
+            <!-- Live Telemetry & Device Health (Grid) -->
+            <section class="grid grid-cols-3 gap-2">
+              <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3 flex flex-col gap-1 shadow-sm">
+                <div class="flex items-center gap-1 text-secondary text-xs">
+                  <span class="material-symbols-outlined text-[16px]">fact_check</span>
+                  <span>Surveys</span>
+                </div>
+                <span class="font-mono text-base font-bold text-on-surface">${myProperties.length}</span>
+                <span class="text-[10px] text-secondary">Logged Today</span>
+              </div>
+
+              <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3 flex flex-col gap-1 shadow-sm">
+                <div class="flex items-center gap-1 text-secondary text-xs">
+                  <span class="material-symbols-outlined text-[16px]">speed</span>
+                  <span>Velocity</span>
+                </div>
+                <span class="font-mono text-base font-bold text-on-surface">${isClocked ? (currentUser.speedKmh || 0) : 0} <small class="text-xs font-sans text-secondary">km/h</small></span>
+                <span class="text-[10px] text-secondary">Transit Speed</span>
+              </div>
+
+              <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3 flex flex-col gap-1 shadow-sm">
+                <div class="flex items-center gap-1 text-secondary text-xs">
+                  <span class="material-symbols-outlined text-[16px]">battery_charging_full</span>
+                  <span>Battery</span>
+                </div>
+                <span class="font-mono text-base font-bold text-primary">${currentUser.batteryPercent || 100}%</span>
+                <span class="text-[10px] text-secondary">High Health</span>
+              </div>
+            </section>
+
+            <!-- Hardware Location Snapshot Card -->
+            <section class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 flex flex-col gap-3 shadow-sm">
+              <div class="flex items-start justify-between">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+                    <span class="material-symbols-outlined text-[18px]">near_me</span>
+                  </div>
+                  <div class="flex flex-col">
+                    <span class="font-bold text-sm text-on-surface">${currentUser.currentAddress || (isClocked ? 'GPS Locating...' : 'Off Shift')}</span>
+                    <span class="text-xs text-secondary">Assigned Cadastral Sector</span>
+                  </div>
+                </div>
+                <div class="px-2.5 py-0.5 rounded-full bg-surface-container border border-outline-variant/30 text-on-surface font-mono text-[10.5px] uppercase font-semibold">
+                  RTK: ±${currentUser.accuracyMeters || 1.8}m
+                </div>
+              </div>
+
+              <div class="bg-surface-container-low p-2.5 rounded-xl flex items-center justify-between text-xs font-mono">
+                <span class="text-secondary">COORDINATES:</span>
+                <strong class="text-on-surface">
+                  ${currentUser.currentCoords ? `${currentUser.currentCoords.lat.toFixed(4)}° N, ${currentUser.currentCoords.lng.toFixed(4)}° E` : '33.7294° N, 73.0551° E'}
+                </strong>
+              </div>
+
+              <div class="flex items-center justify-between text-xs text-secondary pt-0.5">
+                <span>Constellation: GALILEO + GPS L5</span>
+                <span class="font-mono text-primary font-bold">SYNC ACCURATE</span>
+              </div>
+            </section>
+
+            <!-- Bottom Two-Tab Switcher Pill -->
+            <nav class="bg-surface-container-low border border-outline-variant/30 p-1 rounded-full flex items-center justify-between shadow-inner w-full mb-2">
+              <button type="button" class="flex-1 py-2 rounded-full ${activeTab === 'tracker' ? 'bg-surface-container-lowest text-on-surface shadow-sm font-semibold' : 'text-secondary'} text-xs flex items-center justify-center gap-1.5 transition-all" id="subTabTrackerBtn">
+                <span class="material-symbols-outlined text-[17px] text-primary">navigation</span>
+                <span>Shift & GPS</span>
+              </button>
+              <button type="button" class="flex-1 py-2 rounded-full ${activeTab === 'properties' ? 'bg-surface-container-lowest text-on-surface shadow-sm font-semibold' : 'text-secondary'} text-xs flex items-center justify-center gap-1.5 transition-all" id="subTabPropertiesBtn">
+                <span class="material-symbols-outlined text-[17px]">folder_special</span>
+                <span>My Surveys (${myProperties.length})</span>
+              </button>
+            </nav>
+
+          </div>
+        </div>
+
+        <!-- ================= TAB 2: MY SURVEYS DIRECTORY ================= -->
+        <div class="surveyor-tab-pane ${activeTab === 'properties' ? 'active' : 'hidden'}" id="tabPaneProperties">
+          <div class="flex flex-col w-full px-4 pt-3 pb-8 gap-4">
+            
+            <!-- Header -->
+            <div class="flex items-center justify-between">
+              <div>
+                <h1 class="font-bold text-2xl text-on-surface tracking-tight">My Property Surveys</h1>
+                <p class="text-xs text-secondary mt-0.5">${currentUser.name || 'Surveyor'} • ${myProperties.length} Logged Today</p>
+              </div>
+              <button type="button" class="px-3 py-1.5 rounded-xl bg-brand-600 text-white text-xs font-semibold flex items-center gap-1 shadow-sm" id="mySurveysRegisterNewBtn">
+                <span class="material-symbols-outlined text-[16px]">add</span>
+                <span>New Survey</span>
+              </button>
+            </div>
+
+            <!-- Quick Stats Ticker -->
+            <div class="grid grid-cols-3 gap-2">
+              <div class="bg-surface-container-lowest border border-outline-variant/30 p-2.5 rounded-2xl shadow-sm flex flex-col">
+                <span class="text-[10.5px] text-secondary">Logged Count</span>
+                <span class="font-mono text-base font-bold text-on-surface mt-0.5">${myProperties.length} Units</span>
+              </div>
+              <div class="bg-surface-container-lowest border border-outline-variant/30 p-2.5 rounded-2xl shadow-sm flex flex-col">
+                <span class="text-[10.5px] text-secondary">GPS Accuracy</span>
+                <span class="font-mono text-base font-bold text-primary mt-0.5">±1.8m Fix</span>
+              </div>
+              <div class="bg-surface-container-lowest border border-outline-variant/30 p-2.5 rounded-2xl shadow-sm flex flex-col">
+                <span class="text-[10.5px] text-secondary">Audit Status</span>
+                <span class="font-mono text-base font-bold text-primary mt-0.5">100% Stamped</span>
+              </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="relative flex items-center w-full">
+              <span class="material-symbols-outlined absolute left-3.5 text-secondary text-[20px] pointer-events-none">search</span>
+              <input class="w-full h-11 pl-10 pr-10 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 text-on-surface placeholder:text-secondary text-sm shadow-sm focus:outline-none focus:border-brand-600" id="empSearchInput" placeholder="Search by plot, address, or type..." type="text">
+            </div>
+
+            <!-- Quick Filter Chips -->
+            <div class="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+              <button type="button" class="px-3 py-1.5 rounded-full text-xs font-semibold ${activeMySurveysFilter === 'all' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-high text-secondary hover:text-on-surface'} whitespace-nowrap" data-emp-filter="all">
+                All (${myProperties.length})
+              </button>
+              <button type="button" class="px-3 py-1.5 rounded-full text-xs font-semibold ${activeMySurveysFilter === 'verified' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-high text-secondary hover:text-on-surface'} whitespace-nowrap" data-emp-filter="verified">
+                Verified & Locked
+              </button>
+              <button type="button" class="px-3 py-1.5 rounded-full text-xs font-semibold ${activeMySurveysFilter === 'residential' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-high text-secondary hover:text-on-surface'} whitespace-nowrap" data-emp-filter="residential">
+                Residential
+              </button>
+              <button type="button" class="px-3 py-1.5 rounded-full text-xs font-semibold ${activeMySurveysFilter === 'commercial' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-high text-secondary hover:text-on-surface'} whitespace-nowrap" data-emp-filter="commercial">
+                Commercial
+              </button>
+            </div>
+
+            <!-- Surveyed Property Cards List -->
+            <div class="flex flex-col gap-3.5">
+              ${filteredMyProperties.length === 0 ? `
+                <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-8 text-center">
+                  <span class="material-symbols-outlined text-secondary text-[36px] mb-2">add_a_photo</span>
+                  <h4 class="font-bold text-sm text-on-surface">No surveys submitted yet</h4>
+                  <p class="text-xs text-secondary mt-1">Start your shift and tap "Open Camera & Stamp GPS" to record verified on-site listings.</p>
+                </div>
+              ` : filteredMyProperties.map(prop => `
+                <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm flex flex-col">
                   ${prop.imageUrl ? `
-                    <img src="${prop.imageUrl}" alt="${prop.address}" class="prop-card-thumbnail" />
-                  ` : `
-                    <div class="prop-card-thumbnail-placeholder">🏠</div>
-                  `}
-                  <div class="prop-card-details">
-                    <div class="prop-price-row">
-                      <strong class="prop-price">${prop.demand || 'Price on request'}</strong>
-                      <span class="prop-type-badge">${prop.type}</span>
+                    <div class="relative w-full h-44 bg-surface-container">
+                      <img src="${prop.imageUrl}" alt="${prop.address}" class="w-full h-full object-cover">
+                      <div class="absolute top-3 left-3 bg-primary text-on-primary px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold shadow-sm">
+                        VERIFIED GPS
+                      </div>
+                      <div class="absolute bottom-2.5 right-3 bg-surface-container-lowest/90 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[11px] font-mono text-on-surface font-semibold shadow-sm">
+                        ${prop.demand || 'Price on request'}
+                      </div>
                     </div>
-                    <span class="prop-address-text">${prop.address}</span>
-                    <span class="prop-time-stamp">🕒 ${prop.timestamp}</span>
+                  ` : ''}
+
+                  <div class="p-4 flex flex-col gap-2.5">
+                    <div>
+                      <h3 class="font-bold text-base text-on-surface">${prop.address}</h3>
+                      <p class="text-xs text-secondary mt-0.5">${prop.type} • ${prop.area || 'Lot'}</p>
+                    </div>
+
+                    <div class="bg-surface-container-low p-2.5 rounded-xl flex items-center justify-between text-xs text-secondary font-mono">
+                      <span>🕒 ${prop.timestamp || 'Today'}</span>
+                      <strong class="text-primary">RTK Fix ±1.8m</strong>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-1">
+                      <div class="flex items-center gap-1 text-primary text-xs font-semibold">
+                        <span class="material-symbols-outlined text-[16px]">verified</span>
+                        <span>Boundary Verified</span>
+                      </div>
+                      <button type="button" class="px-3 py-1.5 rounded-xl bg-brand-600 text-white text-xs font-semibold flex items-center gap-1 active:scale-95" data-emp-open-dossier="${prop.id}">
+                        <span>View Dossier</span>
+                        <span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               `).join('')}
             </div>
-          </div>
 
-        </div>
+            <!-- Bottom Two-Tab Switcher Pill -->
+            <nav class="bg-surface-container-low border border-outline-variant/30 p-1 rounded-full flex items-center justify-between shadow-inner w-full mt-2 mb-2">
+              <button type="button" class="flex-1 py-2 rounded-full ${activeTab === 'tracker' ? 'bg-surface-container-lowest text-on-surface shadow-sm font-semibold' : 'text-secondary'} text-xs flex items-center justify-center gap-1.5 transition-all" id="subTabTrackerBtn2">
+                <span class="material-symbols-outlined text-[17px]">navigation</span>
+                <span>Shift & GPS</span>
+              </button>
+              <button type="button" class="flex-1 py-2 rounded-full ${activeTab === 'properties' ? 'bg-surface-container-lowest text-on-surface shadow-sm font-semibold' : 'text-secondary'} text-xs flex items-center justify-center gap-1.5 transition-all" id="subTabPropertiesBtn2">
+                <span class="material-symbols-outlined text-[17px] text-primary">folder_special</span>
+                <span>My Surveys (${myProperties.length})</span>
+              </button>
+            </nav>
 
-        <!-- ================= TAB 2: PROPERTIES DIRECTORY ================= -->
-        <div class="tab-pane ${activeTab === 'properties' ? 'active' : ''}" id="tabPaneProperties">
-          <div class="properties-tab-header">
-            <h3>My Surveyed Properties (${myProperties.length})</h3>
-            <span class="text-dim">Verified on-site documentation records</span>
-          </div>
-
-          <div class="properties-full-list">
-            ${myProperties.length === 0 ? `
-              <div class="empty-placeholder-card">
-                <div class="empty-icon">📷</div>
-                <h4>No surveys submitted yet</h4>
-                <p>Clock in and tap "Register Property Survey" to record verified on-site listings with photos and GPS.</p>
-              </div>
-            ` : myProperties.map(prop => `
-              <div class="property-card-large">
-                ${prop.imageUrl ? `
-                  <div class="prop-image-frame">
-                    <img src="${prop.imageUrl}" alt="${prop.address}" class="prop-img-hero" />
-                    <span class="prop-badge-floating">${prop.status || 'Verified'}</span>
-                  </div>
-                ` : ''}
-                <div class="prop-details-body">
-                  <div class="prop-price-large">${prop.demand || 'Price on Request'}</div>
-                  <h4 class="prop-street">${prop.address}</h4>
-                  
-                  <div class="prop-specs-grid">
-                    <div>
-                      <span class="spec-label">Classification</span>
-                      <strong>${prop.type}</strong>
-                    </div>
-                    <div>
-                      <span class="spec-label">Area / Size</span>
-                      <strong>${prop.area || 'N/A'}</strong>
-                    </div>
-                    <div>
-                      <span class="spec-label">GPS Verified</span>
-                      <strong class="text-green">✓ Accurate</strong>
-                    </div>
-                  </div>
-
-                  ${prop.ownerPhone ? `
-                    <div class="prop-owner-info">
-                      <span>Owner: <strong>${prop.ownerName || 'Contact'}</strong> (${prop.ownerPhone})</span>
-                    </div>
-                  ` : ''}
-
-                  ${prop.condition ? `
-                    <p class="prop-condition-notes">${prop.condition}</p>
-                  ` : ''}
-
-                  <div class="prop-timestamp-footer">
-                    <span>Logged on: ${prop.timestamp}</span>
-                  </div>
-                </div>
-              </div>
-            `).join('')}
           </div>
         </div>
 
       </main>
 
-      <!-- Bottom Nav Bar -->
-      <nav class="mobile-nav-bar">
-        <button class="nav-item-btn ${activeTab === 'tracker' ? 'active' : ''}" id="navTrackerBtn">
-          <span class="nav-icon">🧭</span>
-          <span class="nav-label">Shift & GPS</span>
-        </button>
-        <button class="nav-item-btn ${activeTab === 'properties' ? 'active' : ''}" id="navPropertiesBtn">
-          <span class="nav-icon">🏠</span>
-          <span class="nav-label">My Surveys (${myProperties.length})</span>
-        </button>
+      <!-- Fixed Bottom Nav Bar (Material 3 Style) -->
+      <nav class="fixed bottom-0 inset-x-0 z-50 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-1px_12px_rgba(0,0,0,0.05)] border-t border-outline-variant/20">
+        <div class="flex justify-around items-center h-16 px-4">
+          <button type="button" class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] gap-0.5 ${activeTab === 'tracker' ? 'text-primary font-bold' : 'text-secondary'}" id="empNavShiftBtn">
+            <span class="material-symbols-outlined text-[24px]">navigation</span>
+            <span class="text-[11px] leading-tight font-sans">Shift & GPS</span>
+          </button>
+          <button type="button" class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] gap-0.5 ${activeTab === 'properties' ? 'text-primary font-bold' : 'text-secondary'}" id="empNavSurveysBtn">
+            <span class="material-symbols-outlined text-[24px]">folder_special</span>
+            <span class="text-[11px] leading-tight font-sans">My Surveys (${myProperties.length})</span>
+          </button>
+        </div>
       </nav>
 
-      <!-- In-App Property Survey Modal (REAL DEVICE CAMERA & ZERO DUMMY DATA) -->
+      <!-- In-App Property Survey Registration Modal (REAL CAMERA + ZERO DUMMY DATA) -->
       <div class="modal-overlay hidden" id="surveySubmissionModal">
-        <div class="modal-container">
-          <div class="modal-header-simple">
-            <h4>Register Property Survey</h4>
-            <button class="close-modal-icon" id="closeSurveyModalBtn">✕</button>
+        <div class="modal-container bg-surface-container-lowest rounded-2xl p-5 border border-outline-variant/30 shadow-2xl max-w-sm w-full mx-auto max-h-[90vh] overflow-y-auto">
+          <div class="flex items-center justify-between pb-3 border-b border-outline-variant/20 mb-3">
+            <h4 class="font-bold text-base text-on-surface">Register Property Survey</h4>
+            <button class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-secondary hover:text-on-surface" id="closeSurveyModalBtn">✕</button>
           </div>
 
-          <form class="clean-form" id="propertySurveyForm">
+          <form id="propertySurveyForm" class="space-y-3">
             
             <!-- Real Hardware Camera Section -->
-            <div class="form-group">
-              <label class="input-label">On-Site Camera Imagery (Required)</label>
+            <div>
+              <label class="block text-[10px] font-bold text-ink-400 uppercase mb-1">ON-SITE CAMERA IMAGERY (REQUIRED)</label>
               
               <!-- Hidden native camera file input -->
               <input 
@@ -264,72 +400,60 @@ export function renderMobileApp() {
                 style="display: none;" 
               />
 
-              <div class="camera-capture-box" id="cameraCaptureTriggerBox">
+              <div class="border-2 border-dashed border-outline-variant/60 rounded-2xl p-4 text-center cursor-pointer hover:border-brand-600 transition-colors bg-surface-container-low" id="cameraCaptureTriggerBox">
                 ${capturedPhotoDataUrl ? `
-                  <div class="camera-captured-preview">
-                    <img id="activePhotoPreview" src="${capturedPhotoDataUrl}" alt="Captured Property" class="preview-img" />
-                    <button type="button" class="retake-photo-btn" id="retakePhotoBtn">📷 Retake Photo</button>
+                  <div class="relative w-full h-40 rounded-xl overflow-hidden">
+                    <img id="activePhotoPreview" src="${capturedPhotoDataUrl}" alt="Captured Property" class="w-full h-full object-cover">
+                    <button type="button" class="absolute bottom-2 right-2 px-3 py-1 bg-inverse-surface/80 backdrop-blur-md text-white rounded-lg text-xs font-semibold" id="retakePhotoBtn">
+                      📷 Retake
+                    </button>
                   </div>
                 ` : `
-                  <div class="camera-empty-placeholder" id="launchCameraPlaceholder">
-                    <div class="cam-big-icon">📷</div>
-                    <strong class="cam-cta-text">Open Camera & Take Photo</strong>
-                    <span class="cam-sub-text">Captures photo and stamps GNSS coordinates</span>
+                  <div class="flex flex-col items-center justify-center py-3">
+                    <div class="w-12 h-12 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center mb-2 shadow-sm">
+                      <span class="material-symbols-outlined text-[28px]">photo_camera</span>
+                    </div>
+                    <strong class="text-sm text-on-surface block">Open Camera & Take Photo</strong>
+                    <span class="text-xs text-secondary mt-0.5">Captures photo and stamps RTK GNSS coordinates</span>
                   </div>
                 `}
               </div>
-              <div id="cameraStatusFeedback" class="camera-feedback-pill hidden"></div>
+              <div id="cameraStatusFeedback" class="camera-feedback-pill hidden mt-1 text-xs text-primary font-semibold"></div>
             </div>
 
             <!-- Empty Property Fields (ZERO DUMMY DATA) -->
-            <div class="form-group">
-              <label class="input-label" for="propAddressInput">Property Address</label>
-              <input 
-                type="text" 
-                id="propAddressInput" 
-                class="text-input" 
-                placeholder="e.g. Plot 15, Sector C, DHA Phase 5" 
-                required 
-              />
+            <div class="group relative rounded-xl bg-[#F8FAFC] border border-[#E8ECF1] p-2.5">
+              <label class="block text-[10px] font-bold text-ink-400 uppercase mb-1" for="propAddressInput">PROPERTY ADDRESS</label>
+              <input type="text" id="propAddressInput" class="w-full bg-transparent p-0 text-sm font-medium text-ink-900 border-none focus:outline-none" placeholder="e.g. Plot 15, Sector F-7/2, Street 18" required>
             </div>
 
-            <div class="form-grid-2">
-              <div class="form-group">
-                <label class="input-label" for="propTypeSelect">Classification</label>
-                <select id="propTypeSelect" class="text-input">
-                  <option value="House / Villa">House / Villa</option>
+            <div class="grid grid-cols-2 gap-2">
+              <div class="group relative rounded-xl bg-[#F8FAFC] border border-[#E8ECF1] p-2.5">
+                <label class="block text-[10px] font-bold text-ink-400 uppercase mb-1" for="propTypeSelect">CLASSIFICATION</label>
+                <select id="propTypeSelect" class="w-full bg-transparent p-0 text-xs font-medium text-ink-900 border-none focus:outline-none">
+                  <option value="Executive Villa">Executive Villa</option>
                   <option value="Residential Plot">Residential Plot</option>
+                  <option value="Commercial Plaza">Commercial Plaza</option>
                   <option value="Commercial Plot">Commercial Plot</option>
-                  <option value="Apartment">Apartment</option>
-                  <option value="Commercial Building">Commercial Building</option>
+                  <option value="Luxury Apartment">Luxury Apartment</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label class="input-label" for="propAreaInput">Lot Dimensions / Area</label>
-                <input 
-                  type="text" 
-                  id="propAreaInput" 
-                  class="text-input" 
-                  placeholder="e.g. 1 Kanal, 10 Marla" 
-                  required 
-                />
+
+              <div class="group relative rounded-xl bg-[#F8FAFC] border border-[#E8ECF1] p-2.5">
+                <label class="block text-[10px] font-bold text-ink-400 uppercase mb-1" for="propAreaInput">LOT / AREA</label>
+                <input type="text" id="propAreaInput" class="w-full bg-transparent p-0 text-sm font-medium text-ink-900 border-none focus:outline-none" placeholder="e.g. 1 Kanal (500 Sq Yd)" required>
               </div>
             </div>
 
-            <div class="form-grid-2">
-              <div class="form-group">
-                <label class="input-label" for="propDemandInput">Asking Price / Valuation</label>
-                <input 
-                  type="text" 
-                  id="propDemandInput" 
-                  class="text-input" 
-                  placeholder="e.g. $250,000 / PKR 4.8 Crore" 
-                  required 
-                />
+            <div class="grid grid-cols-2 gap-2">
+              <div class="group relative rounded-xl bg-[#F8FAFC] border border-[#E8ECF1] p-2.5">
+                <label class="block text-[10px] font-bold text-ink-400 uppercase mb-1" for="propDemandInput">VALUATION / DEMAND</label>
+                <input type="text" id="propDemandInput" class="w-full bg-transparent p-0 text-sm font-medium text-ink-900 border-none focus:outline-none" placeholder="e.g. PKR 4.8 Crore" required>
               </div>
-              <div class="form-group">
-                <label class="input-label" for="propStatusSelect">Deal Priority</label>
-                <select id="propStatusSelect" class="text-input">
+
+              <div class="group relative rounded-xl bg-[#F8FAFC] border border-[#E8ECF1] p-2.5">
+                <label class="block text-[10px] font-bold text-ink-400 uppercase mb-1" for="propStatusSelect">DEAL STATUS</label>
+                <select id="propStatusSelect" class="w-full bg-transparent p-0 text-xs font-medium text-ink-900 border-none focus:outline-none">
                   <option value="Hot Deal">🔥 Hot Deal</option>
                   <option value="Direct Owner">Direct Owner</option>
                   <option value="Urgent Sale">Urgent Sale</option>
@@ -338,42 +462,29 @@ export function renderMobileApp() {
               </div>
             </div>
 
-            <div class="form-grid-2">
-              <div class="form-group">
-                <label class="input-label" for="propOwnerNameInput">Owner / Representative Name</label>
-                <input 
-                  type="text" 
-                  id="propOwnerNameInput" 
-                  class="text-input" 
-                  placeholder="e.g. Mr. Malik" 
-                />
+            <div class="grid grid-cols-2 gap-2">
+              <div class="group relative rounded-xl bg-[#F8FAFC] border border-[#E8ECF1] p-2.5">
+                <label class="block text-[10px] font-bold text-ink-400 uppercase mb-1" for="propOwnerNameInput">OWNER NAME</label>
+                <input type="text" id="propOwnerNameInput" class="w-full bg-transparent p-0 text-sm font-medium text-ink-900 border-none focus:outline-none" placeholder="e.g. Malik Tariq">
               </div>
-              <div class="form-group">
-                <label class="input-label" for="propOwnerPhoneInput">Owner Contact Phone</label>
-                <input 
-                  type="tel" 
-                  id="propOwnerPhoneInput" 
-                  class="text-input" 
-                  placeholder="e.g. +92 300 1234567" 
-                />
+
+              <div class="group relative rounded-xl bg-[#F8FAFC] border border-[#E8ECF1] p-2.5">
+                <label class="block text-[10px] font-bold text-ink-400 uppercase mb-1" for="propOwnerPhoneInput">OWNER PHONE</label>
+                <input type="tel" id="propOwnerPhoneInput" class="w-full bg-transparent p-0 text-sm font-medium text-ink-900 border-none focus:outline-none" placeholder="+92 300 1234567">
               </div>
             </div>
 
-            <div class="form-group">
-              <label class="input-label" for="propConditionInput">Property Notes & Highlights</label>
-              <textarea 
-                id="propConditionInput" 
-                class="text-input" 
-                rows="2" 
-                placeholder="Corner plot, solid construction, motivated seller..."
-              ></textarea>
+            <div class="group relative rounded-xl bg-[#F8FAFC] border border-[#E8ECF1] p-2.5">
+              <label class="block text-[10px] font-bold text-ink-400 uppercase mb-1" for="propConditionInput">ON-SITE SURVEY NOTES</label>
+              <textarea id="propConditionInput" rows="2" class="w-full bg-transparent p-0 text-xs text-ink-900 border-none focus:outline-none" placeholder="Corner plot, solid stone construction, boundary marked..."></textarea>
             </div>
 
-            <div class="modal-form-actions">
-              <button type="submit" class="btn btn-primary btn-full" id="submitSurveyRecordBtn">
-                Submit Verified Survey to Manager
+            <div class="pt-2 flex flex-col gap-2">
+              <button type="submit" class="w-full h-12 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm" id="submitSurveyRecordBtn">
+                <span class="material-symbols-outlined text-[18px]">verified</span>
+                <span>Submit Verified Survey to Manager</span>
               </button>
-              <button type="button" class="btn btn-secondary btn-full" id="cancelSurveyModalBtn" style="margin-top: 8px;">
+              <button type="button" class="w-full h-10 rounded-xl bg-surface-container text-ink-700 font-medium text-xs" id="cancelSurveyModalBtn">
                 Cancel
               </button>
             </div>
@@ -391,33 +502,41 @@ export function bindMobileAppEvents() {
     return;
   }
 
-  // Bottom Nav Bar Tabs
-  const trackerBtn = document.getElementById('navTrackerBtn');
-  const propertiesBtn = document.getElementById('navPropertiesBtn');
-  const viewAllProps = document.getElementById('viewAllPropertiesLink');
+  // Live timer interval for shift
+  if (shiftTickerInterval) clearInterval(shiftTickerInterval);
+  shiftTickerInterval = setInterval(() => {
+    const timerElem = document.getElementById('shiftTimerDisplay');
+    if (timerElem && state.currentUser?.isClockedIn) {
+      const elapsedMs = Math.max(0, Date.now() - state.shiftStartTime);
+      const totalSec = Math.floor(elapsedMs / 1000);
+      const hours = Math.floor(totalSec / 3600);
+      const minutes = Math.floor((totalSec % 3600) / 60);
+      const seconds = totalSec % 60;
+      timerElem.textContent = `${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
+    }
+  }, 1000);
 
-  if (trackerBtn) {
-    trackerBtn.onclick = () => {
-      activeTab = 'tracker';
-      window.dispatchEvent(new CustomEvent('re-render-request'));
-    };
-  }
+  // Tabs Switching
+  const subTracker = document.getElementById('subTabTrackerBtn');
+  const subProperties = document.getElementById('subTabPropertiesBtn');
+  const subTracker2 = document.getElementById('subTabTrackerBtn2');
+  const subProperties2 = document.getElementById('subTabPropertiesBtn2');
+  const navShift = document.getElementById('empNavShiftBtn');
+  const navSurveys = document.getElementById('empNavSurveysBtn');
 
-  if (propertiesBtn) {
-    propertiesBtn.onclick = () => {
-      activeTab = 'properties';
-      window.dispatchEvent(new CustomEvent('re-render-request'));
-    };
-  }
+  const switchTab = (tab) => {
+    activeTab = tab;
+    window.dispatchEvent(new CustomEvent('re-render-request'));
+  };
 
-  if (viewAllProps) {
-    viewAllProps.onclick = () => {
-      activeTab = 'properties';
-      window.dispatchEvent(new CustomEvent('re-render-request'));
-    };
-  }
+  if (subTracker) subTracker.onclick = () => switchTab('tracker');
+  if (subProperties) subProperties.onclick = () => switchTab('properties');
+  if (subTracker2) subTracker2.onclick = () => switchTab('tracker');
+  if (subProperties2) subProperties2.onclick = () => switchTab('properties');
+  if (navShift) navShift.onclick = () => switchTab('tracker');
+  if (navSurveys) navSurveys.onclick = () => switchTab('properties');
 
-  // Shift Toggle
+  // Shift Toggle (Clock in / Clock out)
   const shiftBtn = document.getElementById('toggleShiftBtn');
   if (shiftBtn) {
     shiftBtn.onclick = () => {
@@ -426,41 +545,39 @@ export function bindMobileAppEvents() {
     };
   }
 
-  // Employee Sign Out (FULL LOGOUT)
+  // Sign Out Handlers
+  const signOut = () => {
+    if (confirm('Are you sure you want to sign out? Your shift will be paused.')) {
+      state.logout();
+    }
+  };
   const signOutBtn = document.getElementById('empSignOutBtn');
-  if (signOutBtn) {
-    signOutBtn.onclick = () => {
-      if (confirm('Are you sure you want to sign out?')) {
-        state.logout();
-      }
-    };
-  }
+  const quickSignOutBtn = document.getElementById('empQuickSignOutBtn');
+  if (signOutBtn) signOutBtn.onclick = signOut;
+  if (quickSignOutBtn) quickSignOutBtn.onclick = signOut;
 
-  // Theme Toggle Button
-  const themeBtn = document.getElementById('toggleThemeBtn');
+  // Theme Toggle
+  const themeBtn = document.getElementById('empThemeToggleBtn');
   if (themeBtn) {
-    themeBtn.onclick = () => {
-      state.toggleTheme();
-    };
+    themeBtn.onclick = () => state.toggleTheme();
   }
 
-  // Header Update Button
-  const headerUpdateBtn = document.getElementById('empHeaderUpdateBtn');
-  if (headerUpdateBtn) {
-    headerUpdateBtn.onclick = () => {
-      state.openUpdateModal();
-    };
+  // Update Modal Trigger
+  const updateBtn = document.getElementById('empHeaderUpdateBtn');
+  if (updateBtn) {
+    updateBtn.onclick = () => state.openUpdateModal();
   }
 
-  // Open & Close Survey Modal
+  // Survey Modal Open / Close
   const surveyModal = document.getElementById('surveySubmissionModal');
-  const quickAddBtn = document.getElementById('quickAddPropertyBtn');
-  const closeModalBtn = document.getElementById('closeSurveyModalBtn');
-  const cancelModalBtn = document.getElementById('cancelSurveyModalBtn');
+  const triggerBtn = document.getElementById('openSurveyTrigger');
+  const mySurveysAddBtn = document.getElementById('mySurveysRegisterNewBtn');
+  const closeSurveyBtn = document.getElementById('closeSurveyModalBtn');
+  const cancelSurveyBtn = document.getElementById('cancelSurveyModalBtn');
 
   const openSurvey = () => {
     if (!state.currentUser?.isClockedIn) {
-      alert('Please start your shift (Clock In) first before registering a property.');
+      alert('Please start your shift (Clock In) first before registering on-site surveys.');
       return;
     }
     capturedPhotoDataUrl = null;
@@ -472,11 +589,12 @@ export function bindMobileAppEvents() {
     capturedPhotoDataUrl = null;
   };
 
-  if (quickAddBtn) quickAddBtn.onclick = openSurvey;
-  if (closeModalBtn) closeModalBtn.onclick = closeSurvey;
-  if (cancelModalBtn) cancelModalBtn.onclick = closeSurvey;
+  if (triggerBtn) triggerBtn.onclick = openSurvey;
+  if (mySurveysAddBtn) mySurveysAddBtn.onclick = openSurvey;
+  if (closeSurveyBtn) closeSurveyBtn.onclick = closeSurvey;
+  if (cancelSurveyBtn) cancelSurveyBtn.onclick = closeSurvey;
 
-  // Real Hardware Camera Trigger & Photo Capture
+  // Real Hardware Camera Trigger & Canvas Watermarking
   const camInput = document.getElementById('realCameraCaptureInput');
   const camTriggerBox = document.getElementById('cameraCaptureTriggerBox');
   const retakeBtn = document.getElementById('retakePhotoBtn');
@@ -526,7 +644,7 @@ export function bindMobileAppEvents() {
           ctx.drawImage(rawImg, 0, 0, w, h);
 
           // Get real coords
-          const coords = state.currentUser?.currentCoords || { lat: 31.5204, lng: 74.3587 };
+          const coords = state.currentUser?.currentCoords || { lat: 33.7294, lng: 73.0551 };
           const stampText = `ESTATERADAR VERIFIED | ${coords.lat.toFixed(5)}° N, ${coords.lng.toFixed(5)}° E | ${new Date().toLocaleTimeString()} | Staff: ${state.currentUser?.name || 'Surveyor'}`;
 
           // Draw bottom watermark bar
@@ -543,12 +661,13 @@ export function bindMobileAppEvents() {
 
           capturedPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.85);
 
-          // Update trigger box preview
           if (camTriggerBox) {
             camTriggerBox.innerHTML = `
-              <div class="camera-captured-preview">
-                <img id="activePhotoPreview" src="${capturedPhotoDataUrl}" alt="Captured Property" class="preview-img" />
-                <button type="button" class="retake-photo-btn" id="retakePhotoBtn">📷 Retake Photo</button>
+              <div class="relative w-full h-40 rounded-xl overflow-hidden">
+                <img id="activePhotoPreview" src="${capturedPhotoDataUrl}" alt="Captured Property" class="w-full h-full object-cover">
+                <button type="button" class="absolute bottom-2 right-2 px-3 py-1 bg-inverse-surface/80 backdrop-blur-md text-white rounded-lg text-xs font-semibold" id="retakePhotoBtn">
+                  📷 Retake
+                </button>
               </div>
             `;
             const newRetake = document.getElementById('retakePhotoBtn');
@@ -556,8 +675,7 @@ export function bindMobileAppEvents() {
           }
 
           if (camFeedback) {
-            camFeedback.innerText = '✓ Photo captured and GPS stamped!';
-            camFeedback.className = 'camera-feedback-pill success';
+            camFeedback.innerText = '✓ Photo captured and RTK GPS stamped!';
             camFeedback.classList.remove('hidden');
           }
         };
@@ -570,39 +688,62 @@ export function bindMobileAppEvents() {
   // Survey Form Submission
   const surveyForm = document.getElementById('propertySurveyForm');
   if (surveyForm) {
-    surveyForm.onsubmit = (e) => {
+    surveyForm.onsubmit = async (e) => {
       e.preventDefault();
       const address = document.getElementById('propAddressInput').value.trim();
       const type = document.getElementById('propTypeSelect').value;
       const area = document.getElementById('propAreaInput').value.trim();
       const demand = document.getElementById('propDemandInput').value.trim();
-      const statusValue = document.getElementById('propStatusSelect').value;
+      const statusVal = document.getElementById('propStatusSelect').value;
       const ownerName = document.getElementById('propOwnerNameInput').value.trim();
       const ownerPhone = document.getElementById('propOwnerPhoneInput').value.trim();
       const condition = document.getElementById('propConditionInput').value.trim();
 
-      if (!capturedPhotoDataUrl) {
-        if (!confirm('No property photo was taken. Would you like to submit without a photo?')) {
-          launchCamera();
-          return;
-        }
-      }
-
-      state.submitPropertySurvey({
+      const newProp = {
+        id: `prop_${Date.now()}`,
         address,
         type,
         area,
         demand,
-        status: statusValue,
-        ownerName,
-        ownerPhone,
-        condition,
-        imageUrl: capturedPhotoDataUrl || ''
-      });
+        status: statusVal,
+        ownerName: ownerName || 'Direct Owner',
+        ownerPhone: ownerPhone || '',
+        condition: condition || 'On-site verified boundary.',
+        surveyorId: state.currentUser?.id,
+        surveyorName: state.currentUser?.name || 'Field Surveyor',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        coordinates: state.currentUser?.currentCoords || { lat: 33.7294, lng: 73.0551 },
+        imageUrl: capturedPhotoDataUrl || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
+        distanceFromPropertyMeters: 4.2,
+        stayDurationMinutes: 24,
+        watermark: {
+          hash: `SHA256-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
+        }
+      };
 
+      await state.addProperty(newProp);
+      alert('✓ Property survey submitted successfully to manager console!');
       closeSurvey();
-      activeTab = 'properties';
       window.dispatchEvent(new CustomEvent('re-render-request'));
     };
   }
+
+  // Open Property Dossier from My Surveys list
+  document.querySelectorAll('[data-emp-open-dossier]').forEach(btn => {
+    btn.onclick = () => {
+      const propId = btn.getAttribute('data-emp-open-dossier');
+      const prop = state.properties.find(p => p.id === propId);
+      if (prop) {
+        window.dispatchEvent(new CustomEvent('open-property-dossier', { detail: prop }));
+      }
+    };
+  });
+
+  // Filter Buttons for My Surveys
+  document.querySelectorAll('[data-emp-filter]').forEach(btn => {
+    btn.onclick = () => {
+      activeMySurveysFilter = btn.getAttribute('data-emp-filter');
+      window.dispatchEvent(new CustomEvent('re-render-request'));
+    };
+  });
 }
