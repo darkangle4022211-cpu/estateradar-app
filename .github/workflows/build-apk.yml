@@ -245,18 +245,24 @@ jobs:
           name: EstateRadar-APK
           path: output/EstateRadar.apk
 
+      - name: Extract Version from version.json
+        id: get_version
+        run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('version.json'))['version'])")
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Release APK File
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/main')
         with:
-          tag_name: v1.0.5
-          name: EstateRadar v1.0.5 Android App
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          name: EstateRadar ${{ steps.get_version.outputs.VERSION }} Android App
           body: |
-            ### 📱 EstateRadar v1.0.5 Android Release
-            - **Fixed Login Interface**: Clean single brand emblem header, removing duplicate status bars and ensuring solid visible action buttons.
-            - **Enhanced Online Auto-Updater**: Zero-cache bypass on version checks, instant live release detection, and robust background downloader.
-            - **Streamlined Architecture**: Deprecated old prototype dashboard files and standardized on the Stitch Obsidian Telemetry system.
-            - **All Core Features**: Live radar telemetry, cryptographic cadastral dossier, shift clock-in/out, and multi-tenant security isolation.
+            ### 📱 EstateRadar ${{ steps.get_version.outputs.VERSION }} Android Release
+            - **Workforce Roster & Approval Flow**: Full employee join requests, manager acceptance, and real-time active roster sync.
+            - **Telemetry & Shift Tracking**: GPS coordinates tracking, shift clock-in/clock-out, and live radar map markers.
+            - **Complete UI Polish**: Single brand emblem header, high-contrast action buttons, and dark obsidian styling.
+            - **In-App Auto-Updater**: Zero-cache bypass and automatic in-app downloads.
           files: output/EstateRadar.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
