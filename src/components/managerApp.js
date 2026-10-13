@@ -401,11 +401,11 @@ export function renderManagerApp() {
                       </div>
 
                       <div class="grid grid-cols-2 gap-2 pt-1">
-                        <button class="h-10 rounded-xl bg-error-container text-on-error-container text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform" data-decline-id="${p.id}">
+                        <button type="button" class="h-10 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform cursor-pointer" style="background-color: #DC2626 !important; color: #ffffff !important;" data-decline-id="${p.id}">
                           <span class="material-symbols-outlined text-[16px]">close</span>
                           <span>Decline</span>
                         </button>
-                        <button class="h-10 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold flex items-center justify-center gap-1 shadow-sm active:scale-95 transition-transform" data-accept-id="${p.id}">
+                        <button type="button" class="h-10 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1 shadow-sm active:scale-95 transition-transform cursor-pointer" style="background-color: #00875A !important; color: #ffffff !important;" data-accept-id="${p.id}">
                           <span class="material-symbols-outlined text-[16px]">check</span>
                           <span>Accept Staff</span>
                         </button>
@@ -1156,8 +1156,8 @@ function initOrUpdateLeafletMap() {
   // Plot surveyors
   const activeStaff = state.employees.filter(e => e.status !== 'pending');
   activeStaff.forEach(emp => {
-    const lat = emp.latitude || (defaultCoords[0] + (Math.random() - 0.5) * 0.02);
-    const lng = emp.longitude || (defaultCoords[1] + (Math.random() - 0.5) * 0.02);
+    const lat = emp.currentCoords?.lat || emp.latitude || (defaultCoords[0] + (Math.random() - 0.5) * 0.02);
+    const lng = emp.currentCoords?.lng || emp.longitude || (defaultCoords[1] + (Math.random() - 0.5) * 0.02);
     const isClocked = Boolean(emp.isClockedIn);
 
     const pinHtml = `

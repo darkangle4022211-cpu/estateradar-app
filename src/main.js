@@ -98,8 +98,13 @@ state.subscribe((s) => {
   }
 });
 
-// Start application on page load
-document.addEventListener('DOMContentLoaded', () => {
+// Start application on page load (support already-loaded DOM in ES modules)
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    renderApp();
+    simulator.start();
+  });
+} else {
   renderApp();
   simulator.start();
-});
+}

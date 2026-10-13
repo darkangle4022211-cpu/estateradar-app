@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
+@source "../index.html";
+@source "./**/*.js";
+@source "../stitch_estateradar_mobile_app_ui/**/*.html";
 
 @layer base {
   html, body {

@@ -6,7 +6,7 @@ import { storage } from './services/storage.js';
 
 const AppUpdater = registerPlugin('AppUpdater');
 
-export const CURRENT_APP_VERSION = 'v1.0.5';
+export const CURRENT_APP_VERSION = 'v1.0.6';
 
 export function normalizeVersion(v) {
   if (!v) return '0.0.0';
@@ -160,9 +160,16 @@ class StateManager {
   }
 
   applyTheme() {
-    if (typeof document !== 'undefined' && document.body) {
-      document.body.classList.remove('dark-theme', 'light-theme');
-      document.body.classList.add(`${this.theme}-theme`);
+    if (typeof document !== 'undefined') {
+      const isDark = this.theme === 'dark';
+      if (document.documentElement) {
+        document.documentElement.classList.toggle('dark', isDark);
+      }
+      if (document.body) {
+        document.body.classList.remove('dark-theme', 'light-theme');
+        document.body.classList.add(`${this.theme}-theme`);
+        document.body.classList.toggle('dark', isDark);
+      }
     }
   }
 
@@ -485,6 +492,28 @@ class StateManager {
     return true;
   }
 
+  // Aliases for managerApp.js
+  async approveStaff(employeeId) {
+    return this.approveEmployee(employeeId);
+  }
+
+  async rejectStaff(employeeId) {
+    return this.rejectEmployee(employeeId);
+  }
+
+  async removeStaff(employeeId) {
+    if (typeof storage.deleteEmployee === 'function') {
+      storage.deleteEmployee(employeeId);
+    }
+    this.employees = this.employees.filter(e => e.id !== employeeId);
+    this.notify();
+    return true;
+  }
+
+  async addStaffMember(name, username, password, role = 'Cadastral Surveyor', phone = '') {
+    return this.createEmployee({ name, username, password, role, phone });
+  }
+
   // Manager creates employee manually
   createEmployee({ name, username, email, password, role, phone }) {
     if (!this.company) return { success: false, error: 'No active agency.' };
@@ -554,6 +583,49 @@ class StateManager {
     try {
       localStorage.setItem('estateradar_auth_session', JSON.stringify({ user, role }));
     } catch (e) {}
+  }
+
+  setAuthSession(sessionData) {
+    if (!sessionData) return;
+    const isManager = sessionData.role === 'manager';
+    const code = (sessionData.agencyCode || 'PRIME').toUpperCase();
+    
+    // Set active company
+    let comp = storage.findCompanyByCode(code);
+    if (!comp) {
+      comp = storage.saveCompany({
+        id: sessionData.agencyId || ('comp_' + Date.now()),
+        name: sessionData.agencyName || 'Agency ' + code,
+        company_code: code
+      });
+    }
+    this.company = comp;
+
+    const userObj = {
+      id: sessionData.id || (isManager ? 'mgr_' + Date.now() : 'emp_' + Date.now()),
+      name: sessionData.name || (isManager ? 'Agency Manager' : 'Field Surveyor'),
+      email: sessionData.email || `${sessionData.username || 'staff'}@agency.internal`,
+      username: sessionData.username || (sessionData.email ? sessionData.email.split('@')[0] : 'user'),
+      role: isManager ? 'manager' : 'employee',
+      company_code: code,
+      isClockedIn: false
+    };
+
+    this.auth.isAuthenticated = true;
+    this.auth.currentUser = userObj;
+    this.currentUser = userObj;
+    this.userRole = isManager ? 'manager' : 'employee';
+    this.activeView = isManager ? 'manager' : 'mobile';
+
+    // Load company employees and properties
+    this.employees = storage.getEmployeesForCompany(code);
+    this.properties = storage.getPropertiesForCompany(code);
+
+    this.saveAuthSession(userObj, this.userRole);
+    this.notify();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('re-render-request'));
+    }
   }
 
   // --- Clock In / Clock Out ---

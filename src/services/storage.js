@@ -45,6 +45,97 @@ class StorageService {
     return list.find(c => c.company_code.toUpperCase() === formatted) || null;
   }
 
+  getAgencyByCode(code) {
+    return this.findCompanyByCode(code);
+  }
+
+  createAgency(name, code) {
+    return this.saveCompany({
+      id: 'comp_' + Date.now(),
+      name: name || 'Agency ' + code,
+      company_code: code
+    });
+  }
+
+  createJoinRequest(agencyIdOrCode, name, username, password, phone) {
+    let companyCode = agencyIdOrCode;
+    const comp = this.getCompanies().find(c => c.id === agencyIdOrCode || c.company_code.toUpperCase() === String(agencyIdOrCode).toUpperCase());
+    if (comp) companyCode = comp.company_code;
+
+    const newEmp = {
+      id: 'emp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 5),
+      company_code: String(companyCode).toUpperCase(),
+      name: name.trim(),
+      username: username.trim().toLowerCase(),
+      email: `${username.trim().toLowerCase()}@agency.internal`,
+      password: password,
+      phone: phone || '',
+      role: 'Field Surveyor',
+      status: 'pending',
+      isClockedIn: false,
+      currentCoords: null,
+      currentAddress: 'Shift Inactive',
+      batteryPercent: 100,
+      surveysToday: 0,
+      createdAt: new Date().toISOString()
+    };
+    return this.saveEmployee(newEmp);
+  }
+
+  findManagerByEmail(agencyIdOrCode, emailOrUser) {
+    const target = (emailOrUser || '').trim().toLowerCase();
+    const companies = this.getCompanies();
+    return companies.find(c => 
+      (c.id === agencyIdOrCode || c.company_code.toUpperCase() === String(agencyIdOrCode).toUpperCase()) &&
+      (c.admin_email?.toLowerCase() === target || c.company_code.toLowerCase() === target)
+    ) || null;
+  }
+
+  updateManagerPassword(agencyIdOrCode, mgrId, newPassword) {
+    const list = this.getCompanies();
+    const comp = list.find(c => c.id === mgrId || c.id === agencyIdOrCode || c.company_code.toUpperCase() === String(agencyIdOrCode).toUpperCase());
+    if (comp) {
+      comp.admin_password = newPassword;
+      return this.saveCompany(comp);
+    }
+    return null;
+  }
+
+  findStaffByUsername(agencyIdOrCode, username) {
+    const target = (username || '').trim().toLowerCase();
+    const employees = this.getAllEmployees();
+    return employees.find(e => 
+      (e.company_code.toUpperCase() === String(agencyIdOrCode).toUpperCase()) &&
+      (e.username?.toLowerCase() === target || e.email?.toLowerCase() === target)
+    ) || null;
+  }
+
+  updateStaffPassword(agencyIdOrCode, staffId, newPassword) {
+    return this.updateEmployee(staffId, { password: newPassword });
+  }
+
+  createManager(agencyIdOrCode, name, email, password) {
+    const comp = this.getCompanies().find(c => c.id === agencyIdOrCode || c.company_code.toUpperCase() === String(agencyIdOrCode).toUpperCase());
+    const manager = {
+      id: 'mgr_' + Date.now(),
+      name: name || email.split('@')[0],
+      email: email,
+      password: password,
+      role: 'manager'
+    };
+    if (comp) {
+      comp.admin_email = email;
+      comp.admin_password = password;
+      comp.admin_name = name;
+      this.saveCompany(comp);
+    }
+    return manager;
+  }
+
+  createStaff(agencyIdOrCode, name, username, password) {
+    return this.createJoinRequest(agencyIdOrCode, name, username, password, '');
+  }
+
   // --- Employees & Join Requests ---
   getAllEmployees() {
     try {
