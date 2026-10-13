@@ -8,6 +8,28 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Nordic Mobile Utility Brand & Ink Palettes
+        brand: {
+          50: '#ECFDF5',
+          100: '#D1FAE5',
+          500: '#10B981',
+          600: '#00875A',
+          700: '#006C49',
+          800: '#005236',
+          900: '#00422B',
+        },
+        ink: {
+          900: '#0F172A',
+          700: '#334155',
+          600: '#475569',
+          500: '#64748B',
+          400: '#94A3B8',
+          300: '#CBD5E1',
+          200: '#E2E8F0',
+          100: '#F1F5F9',
+          50: '#F8FAFC'
+        },
+        // Obsidian Telemetry Material 3 Palettes
         'on-error': '#ffffff',
         'secondary': '#505f76',
         'on-primary': '#ffffff',
@@ -61,7 +83,13 @@ export default {
         'lg': '0.5rem',
         'xl': '0.75rem',
         '2xl': '1rem',
+        '3xl': '1.5rem',
         'full': '9999px',
+      },
+      boxShadow: {
+        'subtle-card': '0 2px 16px -2px rgba(15, 23, 42, 0.05), 0 0 1px 1px rgba(15, 23, 42, 0.03)',
+        'pill-switch': '0 2px 8px -1px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.05)',
+        'button-tap': '0 10px 22px -6px rgba(0, 135, 90, 0.38)',
       },
       spacing: {
         'space-md': '0.75rem',

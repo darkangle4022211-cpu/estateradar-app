@@ -192,14 +192,14 @@ jobs:
           with open(main_activity_path, 'w') as f:
               f.write(main_activity_java)
 
-          # 5. Exclude duplicate kotlin-stdlib-jdk7/8 in android/app/build.gradle and ensure versionCode 4 & versionName 1.0.4
+          # 5. Exclude duplicate kotlin-stdlib-jdk7/8 in android/app/build.gradle and ensure versionCode 5 & versionName 1.0.5
           app_gradle = 'android/app/build.gradle'
           if os.path.exists(app_gradle):
               with open(app_gradle, 'r') as f:
                   app_content = f.read()
 
-              app_content = re.sub(r'versionCode \d+', 'versionCode 4', app_content)
-              app_content = re.sub(r'versionName "[^"]+"', 'versionName "1.0.4"', app_content)
+              app_content = re.sub(r'versionCode \d+', 'versionCode 5', app_content)
+              app_content = re.sub(r'versionName "[^"]+"', 'versionName "1.0.5"', app_content)
 
               if 'kotlin-stdlib-jdk' not in app_content:
                   app_fix = '''
@@ -225,7 +225,7 @@ jobs:
               }''')
                   with open(root_gradle, 'w') as f:
                       f.write(root_content)
-          print('Successfully patched AndroidManifest.xml, Native AppUpdater, and Gradle for v1.0.4!')
+          print('Successfully patched AndroidManifest.xml, Native AppUpdater, and Gradle for v1.0.5!')
           EOF
 
       - name: Build Debug APK via Gradle
@@ -249,17 +249,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/main')
         with:
-          tag_name: v1.0.4
-          name: EstateRadar v1.0.4 Android App
+          tag_name: v1.0.5
+          name: EstateRadar v1.0.5 Android App
           body: |
-            ### 📱 EstateRadar v1.0.4 Android Release
-            - **Obsidian Telemetry Design System**: Complete UI overhaul based on Nordic Mobile Utility specifications.
-            - **Auth Gateway**: Segmented capsules for Agency Office vs Field Surveyor, biometric passkey trigger, and real-time agency registration.
-            - **Agency Manager Cockpit**: Live Leaflet radar telemetry, floating status pills, collapsible technical drawer, and staff join request management.
-            - **Verified Cadastral Dossier**: Cryptographic seal, SHA-256 hash attestation, stamped photo with burned-in HUD bar, and anti-slacking proximity audit (4.2m setback, 24m dwell).
-            - **Field Surveyor Cockpit**: Shift attendance card with live ticking timer, hardware camera photo stamping, and My Surveys directory.
-            - **Zero Dummy Data**: Roster, surveys, and alerts render real state data with authentic empty states.
-            - **In-App Auto-Update**: Seamless in-app OTA updates without external redirects.
+            ### 📱 EstateRadar v1.0.5 Android Release
+            - **Fixed Login Interface**: Clean single brand emblem header, removing duplicate status bars and ensuring solid visible action buttons.
+            - **Enhanced Online Auto-Updater**: Zero-cache bypass on version checks, instant live release detection, and robust background downloader.
+            - **Streamlined Architecture**: Deprecated old prototype dashboard files and standardized on the Stitch Obsidian Telemetry system.
+            - **All Core Features**: Live radar telemetry, cryptographic cadastral dossier, shift clock-in/out, and multi-tenant security isolation.
           files: output/EstateRadar.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

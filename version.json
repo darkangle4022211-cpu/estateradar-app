@@ -1,14 +1,13 @@
 {
-  "version": "v1.0.4",
-  "versionName": "1.0.4",
-  "versionCode": 4,
-  "downloadUrl": "https://github.com/darkangle4022211-cpu/estateradar-app/releases/download/v1.0.4/EstateRadar.apk",
+  "version": "v1.0.5",
+  "versionName": "1.0.5",
+  "versionCode": 5,
+  "downloadUrl": "https://github.com/darkangle4022211-cpu/estateradar-app/releases/download/v1.0.5/EstateRadar.apk",
   "releaseNotes": [
+    "Fixed login screen layout: unified single header & visible primary buttons",
+    "Fixed online auto-updater with zero-cache bypass & direct background installer",
     "Obsidian Telemetry & Nordic Mobile Utility design system integration",
-    "High-precision cadastral fleet tracking and live telemetry HUD",
-    "Material Symbols Outlined and JetBrains Mono technical typography",
-    "Cryptographically attested RTK GNSS watermark stamping on hardware camera",
-    "Zero dummy data isolated multi-tenant architecture with instant in-app update"
+    "Removed legacy dashboard files and streamlined component architecture"
   ],
-  "publishedAt": "2026-10-13T05:45:00Z"
+  "publishedAt": "2026-10-13T10:55:00Z"
 }

@@ -6,7 +6,7 @@ import { storage } from './services/storage.js';
 
 const AppUpdater = registerPlugin('AppUpdater');
 
-export const CURRENT_APP_VERSION = 'v1.0.4';
+export const CURRENT_APP_VERSION = 'v1.0.5';
 
 export function normalizeVersion(v) {
   if (!v) return '0.0.0';
@@ -94,13 +94,16 @@ class StateManager {
     this.updateState = {
       isAvailable: false,
       isModalOpen: false,
+      isChecking: false,
+      lastCheckedTime: null,
+      checkError: null,
       version: CURRENT_APP_VERSION,
       currentVersion: CURRENT_APP_VERSION,
-      downloadUrl: 'https://github.com/darkangle4022211-cpu/estateradar-app/releases/download/v1.0.3/EstateRadar.apk',
+      downloadUrl: 'https://github.com/darkangle4022211-cpu/estateradar-app/releases/download/v1.0.4/EstateRadar.apk',
       releaseNotes: [
-        'Native 1-tap in-app auto-update directly through Android Package Installer',
-        'Real-time online version checking directly against GitHub releases API',
-        'No external redirects to repository or web pages',
+        'Nordic Mobile Utility & Obsidian Telemetry design system',
+        'Real-time online version checking with zero-cache bypass',
+        'Direct in-app background download & seamless installer',
         'Zero dummy data isolated multi-tenant architecture',
         'Hardware camera GPS timestamp watermark verification'
       ],
@@ -679,67 +682,96 @@ class StateManager {
 
   // --- Live Dynamic In-App Auto-Update Engine ---
   async checkForUpdatesOnline() {
+    this.updateState.isChecking = true;
+    this.updateState.checkError = null;
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('update-modal-changed'));
+    }
+    this.notify();
+
     try {
-      let releaseData = null;
+      const ts = Date.now();
+      let vData = null;
+
+      // Source 1: raw.githubusercontent.com version.json with strict cache-busting
       try {
-        const res = await fetch('https://api.github.com/repos/darkangle4022211-cpu/estateradar-app/releases/latest');
-        if (res.ok) {
-          releaseData = await res.json();
+        const rawRes = await fetch(`https://raw.githubusercontent.com/darkangle4022211-cpu/estateradar-app/main/version.json?_t=${ts}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
+        if (rawRes.ok) {
+          vData = await rawRes.json();
+          console.log('[Auto-Updater] version.json fetched successfully:', vData);
         }
-      } catch (e) {
-        console.warn('Direct GitHub API check skipped, attempting version.json:', e);
+      } catch (rawErr) {
+        console.warn('[Auto-Updater] version.json fetch error:', rawErr);
       }
 
-      if (!releaseData) {
+      // Source 2: Direct GitHub Releases API
+      if (!vData) {
         try {
-          const rawRes = await fetch('https://raw.githubusercontent.com/darkangle4022211-cpu/estateradar-app/main/version.json');
-          if (rawRes.ok) {
-            const vData = await rawRes.json();
-            const remoteV = vData.version || CURRENT_APP_VERSION;
-            const hasUpdate = isNewerVersion(remoteV, this.currentVersion);
-            this.updateState.version = remoteV;
-            this.updateState.downloadUrl = vData.downloadUrl || this.updateState.downloadUrl;
-            if (vData.releaseNotes && Array.isArray(vData.releaseNotes)) {
-              this.updateState.releaseNotes = vData.releaseNotes;
+          const apiRes = await fetch(`https://api.github.com/repos/darkangle4022211-cpu/estateradar-app/releases/latest?_t=${ts}`, {
+            headers: {
+              'Accept': 'application/vnd.github.v3+json'
             }
-            this.updateState.isAvailable = hasUpdate;
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('update-modal-changed'));
-            }
-            this.notify();
-            return;
+          });
+          if (apiRes.ok) {
+            const rel = await apiRes.json();
+            const tag = rel.tag_name || CURRENT_APP_VERSION;
+            const apk = rel.assets?.find(a => a.name.endsWith('.apk'));
+            vData = {
+              version: tag,
+              downloadUrl: apk ? apk.browser_download_url : `https://github.com/darkangle4022211-cpu/estateradar-app/releases/download/${tag}/EstateRadar.apk`,
+              releaseNotes: rel.body ? rel.body.split('\n').filter(l => l.trim().startsWith('-')).map(l => l.replace(/^[-*]\s*/, '').trim()) : []
+            };
+            console.log('[Auto-Updater] GitHub releases API fetched:', vData);
           }
-        } catch (rawErr) {
-          console.warn('Raw version check fallback error:', rawErr);
+        } catch (apiErr) {
+          console.warn('[Auto-Updater] GitHub releases API error:', apiErr);
         }
       }
 
-      if (releaseData) {
-        const tag = releaseData.tag_name || CURRENT_APP_VERSION;
-        const apkAsset = releaseData.assets?.find(a => a.name.endsWith('.apk'));
-        const directApkUrl = apkAsset ? apkAsset.browser_download_url : `https://github.com/darkangle4022211-cpu/estateradar-app/releases/download/${tag}/EstateRadar.apk`;
-        
-        const hasUpdate = isNewerVersion(tag, this.currentVersion);
-        this.updateState.version = tag;
-        this.updateState.downloadUrl = directApkUrl;
-        this.updateState.isAvailable = hasUpdate;
-
-        if (releaseData.body) {
-          const lines = releaseData.body.split('\n')
-            .map(l => l.trim().replace(/^[-*]\s*/, ''))
-            .filter(l => l.length > 5 && !l.startsWith('#'));
-          if (lines.length > 0) {
-            this.updateState.releaseNotes = lines.slice(0, 5);
+      // Source 3: jsDelivr CDN fallback
+      if (!vData) {
+        try {
+          const cdnRes = await fetch(`https://cdn.jsdelivr.net/gh/darkangle4022211-cpu/estateradar-app@main/version.json?_t=${ts}`, {
+            cache: 'no-store'
+          });
+          if (cdnRes.ok) {
+            vData = await cdnRes.json();
+            console.log('[Auto-Updater] jsDelivr version.json fetched:', vData);
           }
+        } catch (cdnErr) {
+          console.warn('[Auto-Updater] jsDelivr error:', cdnErr);
         }
+      }
 
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('update-modal-changed'));
+      if (vData) {
+        const remoteVersion = vData.version || CURRENT_APP_VERSION;
+        const hasUpdate = isNewerVersion(remoteVersion, this.currentVersion);
+        this.updateState.version = remoteVersion;
+        this.updateState.downloadUrl = vData.downloadUrl || this.updateState.downloadUrl;
+        if (vData.releaseNotes && Array.isArray(vData.releaseNotes) && vData.releaseNotes.length > 0) {
+          this.updateState.releaseNotes = vData.releaseNotes;
         }
-        this.notify();
+        this.updateState.isAvailable = hasUpdate;
+        this.updateState.lastCheckedTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        console.log(`[Auto-Updater] Comparison: Remote=${remoteVersion}, Current=${this.currentVersion}, isAvailable=${hasUpdate}`);
+      } else {
+        this.updateState.checkError = 'Unable to connect to release server. Please check internet connection.';
       }
     } catch (err) {
-      console.warn('checkForUpdatesOnline failed:', err);
+      console.error('[Auto-Updater] checkForUpdatesOnline error:', err);
+      this.updateState.checkError = err.message;
+    } finally {
+      this.updateState.isChecking = false;
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('update-modal-changed'));
+      }
+      this.notify();
     }
   }
 
